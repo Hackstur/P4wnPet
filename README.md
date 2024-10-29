@@ -14,6 +14,8 @@
 
 ## 💬 Introduction  
 
+**NOTE:** Im not include the requeriments yet. As a resume: I install P4wnP1 aloa image, im change the repos to debian in order to be able to update and install new packages, finally im install a lot of python3 shit.
+
 **P4wnPet** is a Python application designed for the Raspberry Pi Zero W and is closely integrated with the P4wnP1 ALOA framework. Conceptually, it’s a “tamagotchi” with hacking capabilities, enabling users to interact with a virtual pet that can execute various commands through its menu system.
 
 Although still in its early stages, P4wnPet currently focuses on the character's animations, while commands and plugins are under development. Given its experimental nature, P4wnPet is highly flexible, with the design and functionality evolving rapidly as new features and adjustments are added. This playful yet technical project aims to provide both entertainment and potentially useful functionalities through the P4wnP1 ALOA platform.
