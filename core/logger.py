@@ -45,19 +45,3 @@ def setup_logger(name, log_dir="logs", log_level=logging.INFO, max_size=5 * 1024
         logger.addHandler(console_handler)
 
     return logger
-
-
-""" # En cualquier módulo, por ejemplo: module_example.py
-from core.logger import setup_logger
-
-# Configurar logger para este módulo
-logger = setup_logger(__name__)
-
-def my_function():
-    logger.info("This is an info log")
-    logger.error("This is an error log")
-    
-    try:
-        1 / 0  # Genera una excepción
-    except ZeroDivisionError:
-        logger.exception("An exception occurred")  # Captura la excepción en el log"""

@@ -1,8 +1,4 @@
-# Importaciones necesarias
-from core.event_system import event_system  # Importar el sistema de eventos
 # Configurar el logger
-
-
 from core.logger import setup_logger
 logger = setup_logger(__name__)
 
@@ -11,8 +7,8 @@ class MenuItem:
     def __init__(self, name, value=None, options=None, options_index=0, action_select=None, submenu=None, action_update=None):
         self.name = name
         self.value = value
-        self.options = options if options is not None else []
-        self.options_index = options_index
+        #self.options = options if options is not None else []
+        #self.options_index = options_index
 
         self.action_select = action_select  # Acción al seleccionar el ítem
         self.action_update = action_update  # Acción al actualizar el ítem
@@ -23,15 +19,13 @@ class MenuItem:
         if self.action_select:
             logger.info(f"Executing action for item: {self.name}")
             self.action_select(self)  # Si hay una acción asociada, la ejecutamos
+            if self.action_update:
+                self.action_update(self) # para actualizar textos
             
-
-        # Publicar evento de selección del ítem
-        event_system.publish('item_selected', self)
 
         if self.submenu:
             # Publicar evento para entrar en el submenú
             logger.info(f"Entering submenu: {self.submenu}")
-            event_system.publish('submenu_entered', self.submenu)
             return self.submenu
 
         logger.debug(f"No submenu for item: {self.name}")
@@ -81,7 +75,7 @@ class Menu:
         if self.current_index > 0:
             self.current_index -= 1
             logger.info(f"Navigated up to index: {self.current_index} in menu: {self.name}")
-            event_system.publish('navigate_up', self.current_index, self.get_current_item())
+
         else:
             logger.warning("Attempted to navigate up but already at the top.")
 
@@ -90,7 +84,7 @@ class Menu:
         if self.current_index < len(self.items) - 1:
             self.current_index += 1
             logger.info(f"Navigated down to index: {self.current_index} in menu: {self.name}")
-            event_system.publish('navigate_down', self.current_index, self.get_current_item())
+
         else:
             logger.warning("Attempted to navigate down but already at the bottom.")
 
@@ -114,17 +108,15 @@ class Menu:
 
 
 class MenuManager:
-    def __init__(self, event_manager):
+    def __init__(self):
         self.menu_stack = []  # Pila de menús para navegar entre submenús
         self.current_menu = None  # Menú actual
-        self.event_manager = event_manager  # Referencia al event manager
 
     def set_menu(self, menu):
         """Establece el menú actual y actualiza los ítems."""
         self.current_menu = menu
         self.menu_stack = [menu]  # Reinicia la pila con el menú principal
         self.current_menu.update_items()  # Actualiza los ítems del menú
-        self.event_manager.publish('menu_set', menu)  # Publicar evento de cambio de menú
         logger.info(f"Menu set to: {menu.name}")
 
     def navigate_up(self):
@@ -142,10 +134,13 @@ class MenuManager:
         logger.info(f"Selecting current item: {self.current_menu.get_current_item().name}")
         next_menu = self.current_menu.navigate('select')
         if next_menu:  # Si devuelve un submenú, navegamos a él
+            logger.info("Navegando a submenu "+next_menu.name)
             self.menu_stack.append(next_menu)
             self.current_menu = next_menu
+            #if self.current_menu.current_index>self.current_menu.items:
+            self.current_menu.current_index=0
+            self.current_menu.menu_cur_top=0
             self.current_menu.update_items()  # Actualizar ítems del nuevo menú
-            self.event_manager.publish('submenu_navigated', next_menu)
             logger.info(f"Navigated to submenu: {next_menu.name}")
 
     def back(self, aux=None):
@@ -153,8 +148,11 @@ class MenuManager:
         if len(self.menu_stack) > 1:
             self.menu_stack.pop()  # Eliminar el submenú actual
             self.current_menu = self.menu_stack[-1]  # Establecer el menú anterior
+            self.current_menu.current_index=0
+            self.current_menu.menu_cur_top=0
             self.current_menu.update_items()  # Actualizar ítems del menú anterior
-            self.event_manager.publish('menu_back', self.current_menu)
             logger.info(f"Returned to menu: {self.current_menu.name}")
         else:
             logger.warning("Attempted to go back but already at the top menu.")
+
+menu_manager=MenuManager()

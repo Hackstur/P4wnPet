@@ -1,7 +1,6 @@
 import json
 import os
 import time
-from core.functions import Network
 
 # Configurar el logger
 
@@ -10,24 +9,27 @@ from core.logger import setup_logger
 logger = setup_logger(__name__)
 
 class ConfigCategory:
+
     def __init__(self, **kwargs):
+        
         """Inicializa dinámicamente los atributos a partir de los valores pasados."""
         for key, value in kwargs.items():
             if isinstance(value, dict):
                 setattr(self, key, ConfigCategory(**value))
-            elif isinstance(value, Network):
-                setattr(self, key, value)  
+            #elif isinstance(value, Network):
+            #    setattr(self, key, value)  
             else:
                 setattr(self, key, value)
 
     def to_dict(self):
+
         """Convierte la categoría de configuración en un diccionario."""
         result = {}
         for key, value in self.__dict__.items():
             if isinstance(value, ConfigCategory):
                 result[key] = value.to_dict()
-            elif isinstance(value, Network):
-                result[key] = value.to_dict() 
+            #elif isinstance(value, Network):
+            #    result[key] = value.to_dict() 
             else:
                 result[key] = value
         return result
@@ -37,17 +39,13 @@ class AppConfig:
         """Inicializa con configuraciones genéricas."""
         logger.info("Inicializando AppConfig con configuraciones predeterminadas.")
         self.data = ConfigCategory(
-            pet = {
-                'name'      : 'P4wnPet',
-                'birthday'  : time.time() ,
-                'happiness' : 50,
-                'tiredness' : 50,
-                'hunger'    : 50
-
-            }, 
-            wifi ={
-                'target_ap'    : 'Not selected',
-                'nic'       : 'wlan0'
+           
+            hid={
+                'type_speed'    : "(100,50)",
+                'keymap'        : 'ES',
+                'vid'           : 'vidcode',
+                'pid'           : 'pid',
+                'mouse_steps'   : 100,
             }
         )
 

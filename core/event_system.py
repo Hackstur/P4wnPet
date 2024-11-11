@@ -1,7 +1,6 @@
-
 class EventSystem:
     """
-    Sistema de eventos que permite suscribirse y publicar eventos con callbacks.
+    Sistema de eventos que permite suscribirse, desuscribirse y publicar eventos con callbacks.
     
     Attributes:
         subscribers (dict): Un diccionario que mapea nombres de eventos a listas de callbacks asociados.
@@ -26,6 +25,24 @@ class EventSystem:
         if event_name not in self.subscribers:
             self.subscribers[event_name] = []
         self.subscribers[event_name].append(callback)
+
+    def unsubscribe(self, event_name, callback):
+        """
+        Elimina un callback de la lista de suscriptores de un evento específico.
+        
+        Args:
+            event_name (str): Nombre del evento del que se desea desuscribir el callback.
+            callback (function): Función que se desea desuscribir del evento.
+        """
+        if event_name in self.subscribers:
+            try:
+                self.subscribers[event_name].remove(callback)
+                # Elimina la entrada si la lista de suscriptores está vacía
+                if not self.subscribers[event_name]:
+                    del self.subscribers[event_name]
+            except ValueError:
+                # El callback no está en la lista de suscriptores
+                pass
 
     def publish(self, event_name, *args, **kwargs):
         """
@@ -59,32 +76,5 @@ class EventSystem:
         """
         self.events.clear()
 
+# Ejemplo de uso de unsubscribe
 event_system = EventSystem()  # Instancia del sistema de eventos, para todos el mismo
-
-"""
-Ejemplo de uso:
-    # Función que maneja el evento de registro de usuario.
-    def on_user_registered(user_name):
-        print(f"¡Usuario {user_name} se ha registrado exitosamente!")
-
-    # Función que maneja el evento de error del sistema.
-    def on_system_error(error_code):
-        print(f"Error {error_code}: Ha ocurrido un error en el sistema.")
-
-    # Suscribir callbacks a eventos específicos.
-    event_system.subscribe("user_registered", on_user_registered)
-    event_system.subscribe("system_error", on_system_error)
-
-    # Publicar el evento 'user_registered'.
-    event_system.publish("user_registered", "Juan")
-    
-    # Publicar el evento 'system_error'.
-    event_system.publish("system_error", 500)
-
-    # Verificar si un evento ha ocurrido.
-    if event_system.has_event("user_registered"):
-        print("El evento de registro de usuario ha ocurrido.")
-    
-    # Limpiar los eventos ocurridos.
-    event_system.clear_events()
-"""

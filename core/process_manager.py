@@ -1,14 +1,11 @@
 import subprocess
-import os
 import psutil
 import threading
 import queue
-from core.logger import setup_logger
-import time
 
 # Configurar el logger
+from core.logger import setup_logger
 logger = setup_logger(__name__)
-
 class ProcessManager:
     """
     Process Manager que permite agregar y gestionar múltiples procesos de manera concurrente.
@@ -16,10 +13,12 @@ class ProcessManager:
 
     def __init__(self):
         """
-        Inicializa el Process Manager con una lista vacía de procesos.
+        Inicializa el Process Manager con una lista vacía de procesos y comienza a monitorear la salida.
         """
         self.processes = []
         self.output_queue = queue.Queue()  # Cola para capturar la salida sin bloqueo
+        # Iniciar el hilo para monitorear la salida
+        threading.Thread(target=self.monitor_output, daemon=True).start()
 
     def _enqueue_output(self, stream, queue, name, pipe_name):
         """
@@ -32,18 +31,6 @@ class ProcessManager:
             stream.close()
         except Exception as e:
             logger.error(f"Error leyendo la salida del proceso {name}: {str(e)}")
-
-    def _monitor_output(self):
-        """
-        Monitorea la cola de salida y la imprime en la consola.
-        """
-        while True:
-            try:
-                output = self.output_queue.get(timeout=0.1)  # Espera con timeout
-                if output is not None:
-                    logger.info(output)
-            except queue.Empty:
-                break  # Sale si no hay más elementos en la cola
 
     def add_process(self, command, name=None):
         """
@@ -78,6 +65,34 @@ class ProcessManager:
         except Exception as e:
             logger.error(f"Error al iniciar proceso: {str(e)}")
             return None
+
+    def remove_terminated_processes(self):
+        """
+        Elimina los procesos que han terminado de la lista de procesos.
+        """
+        self.processes = [p for p in self.processes if p['process'].poll() is None]
+
+    def list_processes(self):
+        """
+        Lista todos los procesos gestionados actualmente, excluyendo aquellos que ya terminaron.
+        
+        Returns:
+            list: Una lista de diccionarios con la información de los procesos gestionados.
+        """
+        # Limpia los procesos terminados antes de listar
+        self.remove_terminated_processes()
+        process_list = []
+        for process_info in self.processes:
+            process = process_info['process']
+            status = "corriendo" if process.poll() is None else "terminado"
+            process_data = {
+                'name': process_info['name'],
+                'pid': process_info['pid'],
+                'status': status
+            }
+            process_list.append(process_data)
+            logger.info(f"{process_data['name']} (PID {process_data['pid']}): {process_data['status']}")
+        return process_list
 
     def stop_process(self, pid=None, name=None):
         """
@@ -172,27 +187,6 @@ class ProcessManager:
                 return process_info
         return None
 
-    def list_processes(self):
-        """
-        Lista todos los procesos gestionados actualmente.
-        
-        Returns:
-            list: Una lista de diccionarios con la información de los procesos gestionados.
-        """
-        logger.info("Listado de procesos en ejecución:")
-        process_list = []
-        for process_info in self.processes:
-            process = process_info['process']
-            status = "corriendo" if process.poll() is None else "terminado"
-            process_data = {
-                'name': process_info['name'],
-                'pid': process_info['pid'],
-                'status': status
-            }
-            process_list.append(process_data)
-            logger.info(f"{process_data['name']} (PID {process_data['pid']}): {process_data['status']}")
-        return process_list
-
     def stop_all(self):
         """
         Detiene todos los procesos gestionados por el Process Manager.
@@ -230,7 +224,13 @@ class ProcessManager:
         Monitorea la cola de salida y la imprime de manera no bloqueante.
         Llamar a este método regularmente desde la interfaz principal.
         """
-        threading.Thread(target=self._monitor_output, daemon=True).start()
+        while True:  # Ejecuta el monitoreo de manera continua
+            try:
+                output = self.output_queue.get(timeout=1)  # Espera con timeout
+                if output is not None:
+                    logger.info(output)
+            except queue.Empty:
+                continue  # Continuar esperando si no hay más elementos en la cola
 
 # Ejemplo de uso:
 process_manager = ProcessManager()

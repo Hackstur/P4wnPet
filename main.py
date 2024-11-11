@@ -3,9 +3,12 @@ import sys
 import fcntl
 import signal
 import traceback
-import asyncio
-from core.pet import Pet
 from core.logger import setup_logger
+
+from core.plugin_manager import plugin_manager
+from core.menu_manager import menu_manager, Menu
+from core.event_system import event_system
+from core.menu import menu_creator
 
 # Configuración del logger para este módulo
 logger = setup_logger(__name__)
@@ -34,36 +37,53 @@ class SingletonApp:
     def ensure_single_instance(self):
         """
         Asegura que solo una instancia de la aplicación se esté ejecutando.
-        Si se encuentra una instancia anterior, intenta detenerla antes de iniciar una nueva.
+        Si se encuentra una instancia anterior, intenta detenerla y eliminar el archivo PID,
+        luego continúa con la ejecución.
         """
         try:
-            # Si existe un archivo PID, intentaremos eliminar el proceso anterior
+            # Verificar si el archivo PID existe
             if os.path.exists(self.pid_file):
-                with open(self.pid_file, 'r') as f:
-                    old_pid = int(f.read().strip())
+                logger.info(f"Archivo PID encontrado en {self.pid_file}, intentando procesarlo")
                 
-                # Verificar si el proceso sigue activo
-                try:
-                    os.kill(old_pid, 0)
-                except ProcessLookupError:
-                    # El proceso no existe, podemos continuar sin problemas
-                    logger.info("No se encontró un proceso activo con el PID almacenado.")
+                # Leer el contenido del archivo PID
+                with open(self.pid_file, 'r') as f:
+                    pid_content = f.read().strip()
+                
+                # Verificar si el contenido del PID es válido
+                if pid_content.isdigit():
+                    old_pid = int(pid_content)
+                    
+                    # Intentar matar el proceso si está activo
+                    try:
+                        os.kill(old_pid, 0)  # Verifica si el proceso aún existe
+                        logger.info(f"Proceso activo con PID {old_pid} encontrado. Terminando el proceso.")
+                        os.kill(old_pid, signal.SIGTERM)  # Envía señal de terminación
+                    except ProcessLookupError:
+                        logger.info("No se encontró un proceso activo con el PID almacenado.")
+                    except PermissionError:
+                        logger.error(f"No se tienen permisos para finalizar el proceso con PID {old_pid}")
+                        sys.exit(1)
                 else:
-                    # Proceso activo encontrado, intentamos detenerlo
-                    logger.info(f"Terminando el proceso existente con PID {old_pid}")
-                    os.kill(old_pid, signal.SIGTERM)  # Señal para terminar el proceso
-                    logger.info(f"Proceso {old_pid} terminado")
+                    logger.warning(f"El archivo PID contiene un valor inválido: '{pid_content}'")
 
-            # Abrimos el archivo de PID para escritura y bloqueamos
+                # Eliminar el archivo PID en cualquier caso
+                logger.info(f"Eliminando archivo PID {self.pid_file}")
+                os.remove(self.pid_file)
+
+            # Abrir el archivo de PID para escritura y bloquearlo
             self.pid_file_handle = open(self.pid_file, 'w')
             fcntl.lockf(self.pid_file_handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            # Escribimos el nuevo PID
+            
+            # Escribir el nuevo PID en el archivo PID
             self.pid_file_handle.write(str(os.getpid()))
             self.pid_file_handle.flush()
             logger.info(f"Instancia única asegurada, PID {os.getpid()} escrito en {self.pid_file}")
         
         except IOError:
-            logger.error("Error al intentar asegurar la instancia única")
+            logger.error("Error al intentar asegurar la instancia única. Otro proceso está bloqueando el archivo PID.")
+            sys.exit(1)
+        except Exception as e:
+            logger.error(f"Error inesperado al asegurar instancia única: {e}")
             sys.exit(1)
 
     def cleanup(self):
@@ -77,8 +97,9 @@ class SingletonApp:
             if self.pid_file_handle:
                 fcntl.lockf(self.pid_file_handle, fcntl.LOCK_UN)
                 self.pid_file_handle.close()
-            os.remove(self.pid_file)
-            logger.info(f"Archivo PID {self.pid_file} eliminado correctamente")
+            if os.path.exists(self.pid_file):
+                os.remove(self.pid_file)
+                logger.info(f"Archivo PID {self.pid_file} eliminado correctamente")
         except Exception as e:
             logger.error(f"Error al limpiar el archivo PID: {e}")
 
@@ -95,13 +116,22 @@ def main():
     singleton.ensure_single_instance()
 
     try:
-        # Aquí se incluye la lógica principal de la aplicación
 
-        logger.info("Configurando clase Pet")
-        p4wnpet = Pet()  # Crear instancia de la clase principal de la aplicación
+        
+        # ACTIVAMOS PLUGIN POR DEFECTO EN DEBUG (NOTA!) (preparar algo similar en consola)
+        #plugin_to_activate = "SH1106_128_64"
+        #if plugin_to_activate:
+        #    logger.info("iniciando modulo debug")
+        #    if not plugin_manager.is_plugin_active(plugin_to_activate):
+        #        logger.info("modulo debug lanzado!")
+        #        plugin_manager.toggle_plugin(plugin_to_activate)  # Activar el módulo
 
-        # Ejecutar 
-        p4wnpet.start()  # Iniciar la lógica del tamagotchi
+        # CONFIGURAMOS LOS MENUS DESPUES DE LOS PLUGINS PARA QUE SE SUBSCRIBAN
+        main_menu=Menu("P4WNPET")
+        menu_creator(main_menu)
+        menu_manager.set_menu(main_menu)
+
+        event_system.publish(("p4wn_start"))
 
     except Exception as e:
         logger.error(f"Error durante la ejecución de P4wnPet: {e}")
