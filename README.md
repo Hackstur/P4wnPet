@@ -24,24 +24,22 @@ For today, im focus on develop new ideas or systems for P4wnPet, some of them ma
 
 The things actually work:
 
-- P4wnPet strong core. Module system, Event system and Process Manager.
-- P4wnPet menu for P4wnP1 Template list. You can load a template from menu.
-- P4wnPet menu for HID scripts & devices:
+- P4wnPet strong core. Module system, Event system and Process Manager. The menu manager i think can be better.. but for now, works "fine".
+- P4wnPet menu for deploy P4wnP1 Template with one click.
+- P4wnPet menu for deploy HID scripts & devices:
   - P4wnP1 HIDScript
-  - OS SHELL Scripts (Powershell, CMD, etc)
-  - HID Mouse & Keyboard (Not integrated yet, but works "fine")
+  - OS SHELL Scripts (Powershell, CMD, etc) (No menu by now)
+  - HID Mouse & Gamepad (Keyboard WIP)
 
-- P4wnPet menu fir WIFI audit tools:
-  - Get Wpa Handshake
-  - MDK3 Beacon Flood
 
 My prayer list:
 - Bluetooth P4wns (Some works on console, like BlueDucky attacks or scan)
-- Improve get the handshake by deauth attack (actually the function say "no clients in ap" LOL)
--Better core: Im thinking get out the menu from pet class, and maybe transform some utils in modules (wifi audit, etc)
--Better system: Make the app install automatically the service for itself, restart when break, etc.
--Tamagotchi system: Actually the pet its only a sprite walking trough the screen.
--UI system: Actually the UI have nothing... i need to develop a background process who change the icons of wifi, bluetooth, aps in range, etc.
+- Wifi P4wns.. like bluetooth, works in console, but i have to make a plugin
+- Improve get the handshake by deauth attack (actually bettercap goes crazy)
+- Better system: Make the app install automatically the service for itself, restart when break, etc.
+- Virtual Pet system: Actually the pet its only a sprite walking trough the screen... and i do not want to make a p4wnagotchi (its very slow to start, this project wants to be more like Bashbunny in mind)
+- Status Bar: Actually only have the menu button, but i have in mind indicators like smartphones (wifi, bluetooth, etc). 
+- Include on this README the projects i look for inspiration or directly pwn their code :D
 
 <br/>
 
