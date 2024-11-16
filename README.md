@@ -14,34 +14,65 @@
 
 ## 💬 Introduction  
 
-**NOTE:** Im not include the requeriments yet. As a resume: I install P4wnP1 aloa image, im change the repos to debian in order to be able to update and install new packages, finally im install a lot of python3 shit.
+**NOTE:** Im not include the requeriments yet. As a resume: I install P4wnP1 aloa image, im change the repos to debian in order to be able to update and install new packages, finally im install a lot of python3 shit, change boot.ini, etc... ill do a little guide some day.
 
-**P4wnPet** is a Python application designed for the Raspberry Pi Zero W and is closely integrated with the P4wnP1 ALOA framework. Conceptually, it’s a “tamagotchi” with hacking capabilities, enabling users to interact with a virtual pet that can execute various commands through its menu system.
+**P4wnPet** is a Python application designed for the Raspberry Pi Zero W and is closely integrated with the P4wnP1 ALOA framework. Conceptually, it’s (will be) a "Tamagotchi" with pentest capabilities.
 
-Although still in its early stages, P4wnPet currently focuses on the character's animations, while commands and plugins are under development. Given its experimental nature, P4wnPet is highly flexible, with the design and functionality evolving rapidly as new features and adjustments are added. This playful yet technical project aims to provide both entertainment and potentially useful functionalities through the P4wnP1 ALOA platform.
+I'm trying to create something similar to the Bashbunny, but I believe that with P4wnP1, Kali, and a bit of creativity, it could become a 'Bashbunny on steroids' (except for the speed during Plug and Pwn, but that can be resolved by adding an external battery to the Pi Zero W). The pet is only for fun.
 
-For today, im focus on develop new ideas or systems for P4wnPet, some of them maybe dont work because im sure it will work in a future.
+Currently working features:
 
-The things actually work:
+- P4wnPet strong core: Plugin manager, Event system and Process Manager. The menu manager i think can be better.. but for now, works "fine".
+- 2 example plugins:
+  - OLED Waveshare 128x64 display
+  - JokerShell, pranks in powershell
+- Menu for deploy:
+  - P4wnP1 Templates
+  - P4wnP1 HIDScript background jobs (Show as processes in process manager)
+  - OS SHELL Scripts (Powershell, CMD, etc) (No menu by now, but JokerShell plugin is an example)
+  - HID Mouse & Gamepad
+  - NMAP Host OS detection and port scan (Only for usb)
 
-- P4wnPet strong core. Module system, Event system and Process Manager. The menu manager i think can be better.. but for now, works "fine".
-- P4wnPet menu for deploy P4wnP1 Template with one click.
-- P4wnPet menu for deploy HID scripts & devices:
-  - P4wnP1 HIDScript
-  - OS SHELL Scripts (Powershell, CMD, etc) (No menu by now)
-  - HID Mouse & Gamepad (Keyboard WIP)
+
+Work in progress Features:
+
+- HID Keyboard
+- Pet skin system
+- OLED Waveshare 128x64 plugin
+- Pet sprite and behaviorpattern system
+- Usable alert window
+- Queue for handle alerts (Message system?)
+- Status bar indicators
+- Some kind of info panel in right side (overlay carrousel?)
+- General settings and utilities (overclock, clear tmp files, etc)
 
 
-My prayer list:
-- Bluetooth P4wns (Some works on console, like BlueDucky attacks or scan)
-- Wifi P4wns.. like bluetooth, works in console, but i have to make a plugin
-- Improve get the handshake by deauth attack (actually bettercap goes crazy)
-- Better system: Make the app install automatically the service for itself, restart when break, etc.
-- Virtual Pet system: Actually the pet its only a sprite walking trough the screen... and i do not want to make a p4wnagotchi (its very slow to start, this project wants to be more like Bashbunny in mind)
-- Status Bar: Actually only have the menu button, but i have in mind indicators like smartphones (wifi, bluetooth, etc). 
-- Include on this README the projects i look for inspiration or directly pwn their code :D
+
+Wishes and ideas:
+
+ - DuckyScript v3 parser
+ - Use ALPHA Channel in PNG
+ - Some UI for introduce data (related to HID keyboard)
+ - Wifi and Bluetooth sections (BlueDucky, Handshake collector, beaconspam)
+ - Module to interact with external HW, like:
+   - Flash DigiSpark (Or other boards)
+   - Handle Proxmark
+   - Handle RTL-SDR/Sub GHz
+ - Check if its possible make a phisical keylogger dump, cos if you plug a external keyboard to the pi, and plug to a computer, it detects the keyboard...
+
 
 <br/>
+
+
+Projects that inspire me:
+
+ - https://github.com/RoganDawes/P4wnP1_aloa
+
+ - https://github.com/NightRang3r/P4wnP1-A.L.O.A.-Payloads
+
+ - https://github.com/evilsocket/pwnagotchi
+
+
 
 
 

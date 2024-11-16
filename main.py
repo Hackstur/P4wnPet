@@ -2,6 +2,7 @@ import os
 import sys
 import fcntl
 import signal
+import threading
 import traceback
 from core.logger import setup_logger
 
@@ -9,6 +10,7 @@ from core.plugin_manager import plugin_manager
 from core.menu_manager import menu_manager, Menu
 from core.event_system import event_system
 from core.menu import menu_creator
+from core.background import background_worker
 
 # Configuración del logger para este módulo
 logger = setup_logger(__name__)
@@ -130,6 +132,11 @@ def main():
         main_menu=Menu("P4WNPET")
         menu_creator(main_menu)
         menu_manager.set_menu(main_menu)
+
+        # BACKGROUND WORKER
+        background_thread=threading.Thread(target=background_worker, daemon=True)
+        background_thread.start()
+        logger.info("Lanzando proceso en background")
 
         event_system.publish(("p4wn_start"))
 

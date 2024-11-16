@@ -6,6 +6,7 @@ import queue
 # Configurar el logger
 from core.logger import setup_logger
 logger = setup_logger(__name__)
+
 class ProcessManager:
     """
     Process Manager que permite agregar y gestionar múltiples procesos de manera concurrente.

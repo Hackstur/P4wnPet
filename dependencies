@@ -1,0 +1,21 @@
+# con los repos de bullseye
+
+# LUMA DRIVERS
+sudo apt-get install -y libjpeg-dev zlib1g-dev
+
+sudo apt-get install python3 #v3.9 en bullseye
+
+pip3 install --upgrade luma.oled
+pip3 install --upgrade luma.core
+
+# PSUTIL (Process manager)
+pip3 install --upgrade psutil
+
+
+# (en este punto RPi.GPIO no funciona bien, instalo los repos de bullseye)
+# tambien hay que instalar el pi-bluetooth+re4son_2.2_all.deb de P4wnP1 para el update
+# Me pongo la imagen de Nightranger (son ambas lentisimas para iniciar pero funcionan muy bien)
+# vuelvo a la original, ya me lo montare, por ahorrar casi 1min de arranque.
+
+
+

@@ -2,6 +2,7 @@
 import json
 import os
 import platform
+import re
 import socket
 import time
 from core.config import config
@@ -19,7 +20,7 @@ logger = setup_logger(__name__)
 
 def menu_creator(menu):
         
-
+        menu.add_item(MenuItem( name="HOST INFORMATION", submenu=Menu("HOST INFORMATION"), action_select=lambda item: (update_host_information_menu(item))))
         menu.add_item(MenuItem( name="SYSTEM INFORMATION", submenu=Menu("SYSTEM INFORMATION"), action_select=lambda item: (update_system_information_menu(item))))
         menu.add_item(MenuItem( name="SETTINGS", submenu=Menu("SETTINGS"), action_select=lambda item: (update_settings_menu(item))))
         
@@ -31,7 +32,8 @@ def menu_creator(menu):
         menu.add_item(MenuItem(name="HID SCRIPTS & DEVICES", submenu=Menu("HID SCRIPTS & DEVICES"), action_select=lambda item: (update_hid_menu(item))))
 
         submenu=Menu("RESTART OR SHUTDOWN")
-        submenu.add_item(MenuItem(name="RESTART P4WNP1 SERVICE", action_select=lambda item:(run_command("sudo systemctl restart P4wnP1.service") )))
+        submenu.add_item(MenuItem(name="RESTART P4WNPET", action_select=lambda item:(restart_p4wnpet() )))
+        submenu.add_item(MenuItem(name="RESTART P4WNP1", action_select=lambda item:(run_command("sudo systemctl restart P4wnP1.service") )))
         submenu.add_item(MenuItem(name="RESTART SYSTEM", action_select=lambda item:(run_command("sudo reboot"))))
         submenu.add_item(MenuItem(name="SHUTDOWN", action_select=lambda item:(run_command("sudo shutdown") )))
         menu.add_item(MenuItem(name="RESTART", submenu=submenu))
@@ -40,7 +42,6 @@ def menu_creator(menu):
 def update_menuitem_text(menuitem, text):
      logger.info(f"Actualizando {menuitem.name} con {text}")
      menuitem.name=text
-
 
 
 def update_filesearch_menu(menuitem, base_path, action_for_file, file_extension=".json", initial_base_path=None):
@@ -132,10 +133,28 @@ def update_filesearch_menu(menuitem, base_path, action_for_file, file_extension=
     menuitem.submenu.add_item(MenuItem("..Back", action_select=menu_manager.back)) # back item  
 
 
-#region SETTINGS
-
+# region SETTINGS
+# (IDEAS BYTHEWAY)
+ 
 def update_settings_menu(menuitem):
     menuitem.submenu.items.clear()
+
+    # DWC2 SWITCH (in order to connect things to our pi)
+    menuitem.submenu.add_item(MenuItem(
+        name="DWC2: ENABLED" if is_dwc2_enabled() else "DWC2: DISABLED"
+        #action_select=toggle_dwc2_mode()
+    ))
+
+    menuitem.submenu.add_item(MenuItem(
+        name="OVERCLOCK: NONE"
+    ))
+
+    menuitem.submenu.add_item(MenuItem(
+        name="CLEAR TEMPORAL FILES",
+        action_select=run_command("rm -rf /tmp/HIDscript*")
+    ))
+
+
 
     event_system.publish("p4wn_settings_menu", menuitem)
     # Elemento de retorno al menú anterior
@@ -144,6 +163,46 @@ def update_settings_menu(menuitem):
 
 #endregion
 
+#region HOST INFORMATION
+
+def update_host_information_menu(menuitem):
+    menuitem.submenu.items.clear()
+    #return os name if found ex. Microsoft Windows 7 ,  Linux 3.X
+    #return(shell("nmap -p 22,80,445,65123,56123 -O " + ips + " | grep Running: | cut -d \":\" -f2 | cut -d \"|\" -f1"))
+    #return(shell("nmap -p 22,80,445,65123,56123 -O " + ips + " | grep \"OS details:\" | cut -d \":\" -f2 | cut -d \",\" -f1"))
+    #res=run_command("nmap -p 22,80,445,65123,5613 -O 172.16.0.2")
+    output=run_command("nmap -O 172.16.0.2")
+
+    open_ports = []
+    detected_os = "Not detected"
+
+    # Detect operating system
+    os_running_match = re.search(r"Running:\s+(.*)", output)
+    os_details_match = re.search(r"OS details:\s+(.*)", output)
+    if os_running_match:
+        detected_os = os_running_match.group(1).strip()
+        menuitem.submenu.add_item(MenuItem(f"OS: {detected_os}"))
+        if os_details_match:
+            menuitem.submenu.add_item(MenuItem(f"OS: {os_details_match.group(1).strip().replace(detected_os,'')}"))
+
+
+    # Extract open ports
+    for line in output.splitlines():
+        # Look for lines with open ports (format: port/protocol state service)
+        port_match = re.match(r"(\d+/tcp)\s+open\s+([\w-]+)", line)
+        if port_match:
+            port = port_match.group(1)
+            service = port_match.group(2)
+            open_ports.append({"port": port, "service": service})
+            menuitem.submenu.add_item(MenuItem(f"{port}:{service}"))
+
+
+
+    menuitem.submenu.add_item(MenuItem("..Back", action_select=menu_manager.back)) # back item
+
+    logger.info(output)
+
+#endregion
 
 #region SYSTEM INFORMATION
 
@@ -162,19 +221,20 @@ def update_system_information_menu(menuitem):
     memory = psutil.virtual_memory()
     available_mb = memory.available // (1024 ** 2)
     total_mb = memory.total // (1024 ** 2)
-    menuitem.submenu.add_item(MenuItem(f"RAM: {available_mb}/{total_mb} MB"))
+    menuitem.submenu.add_item(MenuItem(f"RAM   : {total_mb-available_mb}/{total_mb} MB"))
+
     
     # Uso de CPU
     cpu_usage = psutil.cpu_percent(interval=1)
-    menuitem.submenu.add_item(MenuItem(f"CPU: {cpu_usage} %"))
+    menuitem.submenu.add_item(MenuItem(f"CPU   : {cpu_usage} %"))
     
     # Temperatura de la CPU (si está disponible)
     try:
         with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
             cpu_temp_celsius = int(f.read()) / 1000
-        menuitem.submenu.add_item(MenuItem(f"Temp: {cpu_temp_celsius:.1f}°C"))
+        menuitem.submenu.add_item(MenuItem(f"TEMP  : {cpu_temp_celsius:.1f}°C"))
     except FileNotFoundError:
-        menuitem.submenu.add_item(MenuItem("Temp: No disponible"))
+        menuitem.submenu.add_item(MenuItem("TEMP  : CANT MEASURE"))
     
     # Espacio en Disco
     disk_usage = psutil.disk_usage('/')
@@ -182,11 +242,16 @@ def update_system_information_menu(menuitem):
     total_gb = disk_usage.total / (1024 ** 3)
     menuitem.submenu.add_item(MenuItem(f"DISK: {used_gb:.2f}/{total_gb:.2f} GB"))
     
+    # Velocidad de I/O (basica) Ralentiza mucho la apertura del menu, darle un par de vueltas
+    #menuitem.submenu.add_item(MenuItem(f"WRITE SD: {measure_write_speed('/root/')} Mbps"))
+    #menuitem.submenu.add_item(MenuItem(f"READ SD: {measure_read_speed('/root/')} Mbps"))
+
+
     # Información del kernel y del sistema operativo
     kernel_version = platform.release()
     os_name = platform.system() + " " + platform.version()
     menuitem.submenu.add_item(MenuItem(f"KERNEL: {kernel_version}"))
-    menuitem.submenu.add_item(MenuItem(f"OS: {os_name}"))
+    menuitem.submenu.add_item(MenuItem(f"OS    : {os_name}"))
     
     # Tiempo de actividad (Uptime)
     uptime_seconds = time.time() - psutil.boot_time()
@@ -194,38 +259,25 @@ def update_system_information_menu(menuitem):
     uptime_minutes = (uptime_seconds % 3600) // 60
     menuitem.submenu.add_item(MenuItem(f"UPTIME: {int(uptime_hours)}h {int(uptime_minutes)}m"))
     
-    # Dirección IP local
-    try:
-        local_ip = socket.gethostbyname(socket.gethostname())
-    except socket.gaierror:
-        local_ip = "No disponible"
-    menuitem.submenu.add_item(MenuItem(f"IP Local: {local_ip}"))
-    
-    # Dirección MAC (si está disponible)
-    for iface, addrs in psutil.net_if_addrs().items():
-        for addr in addrs:
-            if addr.family == psutil.AF_LINK:
-                menuitem.submenu.add_item(MenuItem(f"{iface}:{addr.address}"))
-    
     # Uso de red
     net_io = psutil.net_io_counters()
-    menuitem.submenu.add_item(MenuItem(f"DATA Sent: {net_io.bytes_sent / (1024 ** 2):.2f} MB"))
-    menuitem.submenu.add_item(MenuItem(f"DATA Received: {net_io.bytes_recv / (1024 ** 2):.2f} MB"))
+    menuitem.submenu.add_item(MenuItem(f"DATA SEND: {net_io.bytes_sent / (1024 ** 2):.2f} MB"))
+    menuitem.submenu.add_item(MenuItem(f"DATA RECV: {net_io.bytes_recv / (1024 ** 2):.2f} MB"))
     
     # Número de procesos en ejecución
     process_count = len(psutil.pids())
-    menuitem.submenu.add_item(MenuItem(f"PROCESSES: {process_count}"))
+    menuitem.submenu.add_item(MenuItem(f"PROCS : {process_count}"))
     
     # Tiempo desde el último reinicio del sistema
     boot_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(psutil.boot_time()))
-    menuitem.submenu.add_item(MenuItem(f"BOOT TIME: {boot_time}"))
+    menuitem.submenu.add_item(MenuItem(f"BOOT: {boot_time}"))
     
     # Archivos y límites del sistema (inodos y otros datos)
     try:
         statvfs = os.statvfs('/')
         free_inodes = statvfs.f_favail
         total_inodes = statvfs.f_files
-        menuitem.submenu.add_item(MenuItem(f"INODES: {free_inodes}/{total_inodes} disponibles"))
+        menuitem.submenu.add_item(MenuItem(f"INODES: {free_inodes}/{total_inodes}"))
     except Exception:
         menuitem.submenu.add_item(MenuItem("INODES: No disponible"))
     

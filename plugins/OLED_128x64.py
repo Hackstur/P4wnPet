@@ -2,27 +2,20 @@
 import asyncio
 import traceback
 from luma.core.interface.serial import spi
-from luma.core.render import canvas
-from luma.core.sprite_system import framerate_regulator
-from luma.core import lib
 from luma.oled.device import sh1106
 import RPi.GPIO as GPIO
-import datetime
-import time
+
 import subprocess
 from PIL import Image
 from PIL import ImageDraw
 from PIL import ImageFont
-import socket, sys
-import os
-import base64
-import struct
-import smbus
+
 
 from core.menu_manager import Menu, MenuItem, menu_manager
 from core.config import config
 
 from core.event_system import event_system
+from plugins.OLED.sprite import Sprite
 
 from core.logger import setup_logger
 logger = setup_logger(__name__)
@@ -34,6 +27,18 @@ class Fonts:
     MenuTitle = ImageFont.truetype('plugins/OLED/fonts/FreePixel.ttf', 12)
     KeyBoard = ImageFont.truetype('plugins/OLED/fonts/FreePixel.ttf', 8)
     Text = ImageFont.truetype('plugins/OLED/fonts/miscfs__.ttf', 14)
+
+class Icons:
+    Menu=Image.open("plugins/OLED/icons/menu_icon.png")
+    Close=Image.open("plugins/OLED/icons/menu_close.png")
+    Keyboard=Image.open("plugins/OLED/icons/hid_keyboard_icon.png")
+    Mouse=Image.open("plugins/OLED/icons/hid_mouse_icon.png")
+    Serial=Image.open("plugins/OLED/icons/serial_icon.png")
+    Raw=Image.open("plugins/OLED/icons/hid_raw_icon.png")
+    MassStorage=Image.open("plugins/OLED/icons/ums_icon.png")
+    NetUsb=Image.open("plugins/OLED/icons/usb_icon.png")
+    Bluetooth=Image.open("plugins/OLED/icons/bluetooth_icon.png")
+    Wifi=Image.open("plugins/OLED/icons/wifi_signal.png")
 
 
 
@@ -48,7 +53,7 @@ class OLED_128x64:
     def initialize(self):
         # LOOP LOCK
         self.active=False
-        # SELF VARS
+        # KEY VARS
         self.key = {
             'up': 6,
             'down': 19,
@@ -59,21 +64,29 @@ class OLED_128x64:
             'key2': 20,
             'key3': 16
         }
+
+        # PET VARS
+        self.pet_skin="bat"
+        self.pet_positions= {
+            'stay_normal'       : (0, [0, 1, 2, 3]),                   # Índice de frame para salsear (candidato a fichero a incluir en cada "skin")
+            'walk_right_normal' : (1, [0, 1, 2, 3]),
+            'walk_left_normal'  : (2, [0, 1, 2, 3])
+        }
+
+        self.pet_sprite=Sprite(f"plugins/OLED/pets/{self.pet_skin}/{self.pet_skin}_normal.png", 32, 32, self.pet_positions, frame_duration=3, columns=4, behavior_type="bounce", screen_width=60, screen_height=40, offset=(0,12) )
+        self.pet_sprite.set_animation("stay_normal")
+
         
         # ADJUST MENU
         self.menu_max_lines = 5
         self.menu_line_size = 9
-
-        # ICONS
-        self.menu_icon=Image.open("plugins/OLED/icons/menu_icon.png")
-        self.menu_close = Image.open("plugins/OLED/icons/menu_close.png")
+        
 
         # IMAGE BUFFER
         self.image=Image.new('1',(128,64))
 
         # GPIO INITS
         GPIO.setwarnings(False)
-        GPIO.setmode(GPIO.BCM)
         GPIO.setmode(GPIO.BCM)
         GPIO.setup(25,GPIO.OUT)
         GPIO.output(25,GPIO.HIGH)
@@ -101,32 +114,77 @@ class OLED_128x64:
         logger.info("[OLED] Initialize main loop") 
         while self.active:
 
-            # Crea un buffer de imagen en lugar de dibujar directamente en el dispositivo
-            draw = ImageDraw.Draw(self.image)
-            
-            # Realiza todos los dibujos en el buffer
-            draw.rectangle((0, 0, self.image.width, self.image.height), outline=0, fill=0)
-            self.draw_status_bar(draw)
-
-            # Finalmente, envía la imagen completa al dispositivo
-            self.device.display(self.image)
-        
-
-
             if GPIO.event_detected(self.key['key1']): # OPEN MAIN MENU
                 logger.info("KEY 1")
                 self.open_menu()
             else:
                 a=1
+
+            # Crea un buffer de imagen en lugar de dibujar directamente en el dispositivo
+            draw = ImageDraw.Draw(self.image)
+            
+            # Realiza todos los dibujos en el buffer
+            draw.rectangle((0, 0, self.image.width, self.image.height), outline=0, fill=0)
+            self.draw_status_bar(draw) # statusbar
+            
+            self.pet_sprite.update() # pet
+            self.pet_sprite.draw(self.image) # pet
+
+            
+
+            # test iconos pet
+
+            # Finalmente, envía la imagen completa al dispositivo
+            self.device.display(self.image)
                 
 
     #region STATUS BAR
 
     def draw_status_bar(self, draw):
-        # Realiza todos los dibujos en el buffer
-        draw.rectangle((0, 0, self.image.width, 12), outline=0, fill=1)
-        # Finalmente, envía la imagen completa al dispositivo
-        self.image.paste(self.menu_icon, (116, 0))
+        draw.rectangle((0, 0, self.image.width, 11), outline=1, fill=1) # FONDO
+
+        self.image.paste(Icons.Menu, (116, 0))  # MENU
+
+        icons_to_draw=[]
+        
+        # wifi icon crop
+        if hasattr(config.data, 'wifi_signal') and config.data.wifi_signal:
+            icon_width=17
+            icon_height=12
+            icon_x=config.data.wifi_signal*icon_width
+            icons_to_draw.append(Icons.Wifi.crop((icon_x,0,icon_x+icon_width,icon_height)))
+
+        if (hasattr(config.data, 'rndis') and config.data.rndis) or (hasattr(config.data, 'cdc_ecm') and config.data.cdc_ecm):
+            icons_to_draw.append(Icons.NetUsb)
+
+        if hasattr(config.data, 'mass_storage') and config.data.mass_storage:
+            icons_to_draw.append(Icons.MassStorage)
+
+        if hasattr(config.data, 'hid_keyboard') and config.data.hid_keyboard: 
+            icons_to_draw.append(Icons.Keyboard)
+        
+        if hasattr(config.data, 'serial') and config.data.serial:
+            icons_to_draw.append(Icons.Serial)
+
+        if hasattr(config.data, 'hid_mouse') and config.data.hid_mouse:
+            icons_to_draw.append(Icons.Mouse)
+
+        if hasattr(config.data, 'bluetooth') and config.data.bluetooth:
+            icons_to_draw.append(Icons.Bluetooth)
+
+
+        # Posición inicial para apilar los iconos a la izquierda
+        position_x = 0
+
+        # Dibujar los iconos apilados a la izquierda
+        for icon in icons_to_draw:
+            self.image.paste(icon, (position_x, 0))  # Dibuja el icono en la posición actual
+            position_x += icon.width  # Incrementar la posición para el siguiente icono (con un pequeño espacio de 2 píxeles)
+            
+
+
+
+
 
     #endregion    
     
@@ -204,9 +262,9 @@ class OLED_128x64:
         draw = ImageDraw.Draw(self.image)
         draw.rectangle((0, 0, self.image.width, self.image.height), outline=0, fill=0)
         
-        draw.rectangle((0, 0, self.image.width, 11), outline=0, fill=1)
+        draw.rectangle((0, 0, self.image.width, 12), outline=1, fill=1)
         draw.text((1, 1), menu.name, font=Fonts.MenuTitle, fill=0)
-        self.image.paste(self.menu_close, (116,0))
+        self.image.paste(Icons.Close, (116,0))
 
 
         y = 14

@@ -51,17 +51,28 @@ class JokerShell:
         ))
 
     def _on_hidscripts_menu(self, menuitem):
-        menuitem.submenu.add_item(MenuItem(
-            name="JOKERSHELL SCRIPTS",
-            submenu=Menu("JOKERSHELL SCRIPTS"),
-            action_select=lambda item: (
-                update_filesearch_menu(menuitem=item, base_path="plugins/JokerShell/", file_extension=".ps1", action_for_file=self.run_jokershell_script)
-        )))
+
+        if not self.check_jokershell_directory():
+            menuitem.submenu.add_item(MenuItem(
+                name="DOWNLOAD JOKERSHELL",
+                action_select=self.download_jokershell()
+            ))
+        else:
+            menuitem.submenu.add_item(MenuItem(
+                name="JOKERSHELL SCRIPTS",
+                submenu=Menu("JOKERSHELL SCRIPTS"),
+                action_select=lambda item: (
+                    update_filesearch_menu(menuitem=item, base_path="plugins/JokerShell/", file_extension=".ps1", action_for_file=self.run_jokershell_script)
+            )))
+
+
         
+
 
 
     # TO-DO: No blocking launcher in processmanager for large running commands
     # TO-DO: Alternative script deploy for faster p4wn (access in shared folder/ums mount/webserver/etc)
+    # IDEAS: make a jokershell.bin, mount it on /mnt/ and toggle mount-ums for update in local or host
     def run_jokershell_script(self, path):
         logger.info(f"Lanzando script: {path}")
         _, extension = os.path.splitext(path)
@@ -89,6 +100,12 @@ class JokerShell:
 
             except Exception as e:
                 logger.error(f"Error al leer el script de PowerShell: {e}")
+
+
+    def build_jokershell_image(self, path):
+        a=1
+        #command: genimg -l "JOKERSHELL" -i plugins/JokerShell/JokerShell -o /usr/local/P4wnP1/ums/flashdrive/jokershell.bin
+        
 
 
     

@@ -2,6 +2,7 @@ import os
 import importlib
 import json
 import sys
+import traceback
 
 from core.logger import setup_logger
 logger = setup_logger(__name__)
@@ -64,6 +65,8 @@ class PluginManager:
                     self._load_plugin_class(plugin_module, module_name)
                 except Exception as e:
                     logger.error(f"Error al importar el plugin {module_name}: {e}")
+                    logger.error("Detalles del error:")
+                    logger.error(traceback.format_exc())
                 finally:
                     sys.path.pop(0)
 

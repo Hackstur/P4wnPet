@@ -1,10 +1,6 @@
 import json
 import os
-import time
-
 # Configurar el logger
-
-
 from core.logger import setup_logger
 logger = setup_logger(__name__)
 
