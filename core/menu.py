@@ -11,6 +11,7 @@ from core.menu_manager import Menu, MenuItem, menu_manager
 from core.event_system import event_system
 from core.process_manager import process_manager
 from core.constants import constants
+from core.overclock import check_overclock, apply_overclock, overclock_profiles
 from core.functions import *
 import psutil
 
@@ -135,7 +136,7 @@ def update_filesearch_menu(menuitem, base_path, action_for_file, file_extension=
 
 # region SETTINGS
 # (IDEAS BYTHEWAY)
- 
+
 def update_settings_menu(menuitem):
     menuitem.submenu.items.clear()
 
@@ -146,7 +147,9 @@ def update_settings_menu(menuitem):
     ))
 
     menuitem.submenu.add_item(MenuItem(
-        name="OVERCLOCK: NONE"
+        name=f"OVERCLOCK: {check_overclock()}",
+        submenu=Menu("SELECT OVERCLOCK"),
+        action_select=lambda item: ( update_settings_overclock_submenu(item) )
     ))
 
     menuitem.submenu.add_item(MenuItem(
@@ -161,7 +164,19 @@ def update_settings_menu(menuitem):
     menuitem.submenu.add_item(MenuItem("..Back", action_select=menu_manager.back)) # back item
 
 
+def update_settings_overclock_submenu(menuitem):
+    menuitem.submenu.items.clear()
+    for profile in overclock_profiles:
+        menuitem.submenu.add_item(MenuItem(
+            name=profile,
+            action_select=lambda item: (apply_overclock(profile=item.name))
+        ))
+    
+    menuitem.submenu.add_item(MenuItem("..Back", action_select=menu_manager.back)) # back item
+
+
 #endregion
+
 
 #region HOST INFORMATION
 
@@ -204,6 +219,7 @@ def update_host_information_menu(menuitem):
 
 #endregion
 
+
 #region SYSTEM INFORMATION
 
 def update_system_information_menu(menuitem):
@@ -214,27 +230,27 @@ def update_system_information_menu(menuitem):
         with open("/proc/device-tree/model", "r") as f:
             raspberry_model = f.read().strip()
     except FileNotFoundError:
-        raspberry_model = "Modelo de Raspberry no disponible"
+        raspberry_model = "UNKNOW HW MODEL"
     menuitem.submenu.add_item(MenuItem(f"{raspberry_model.lower().replace('raspberry ', '')}"))
     
     # Memoria RAM
     memory = psutil.virtual_memory()
     available_mb = memory.available // (1024 ** 2)
     total_mb = memory.total // (1024 ** 2)
-    menuitem.submenu.add_item(MenuItem(f"RAM   : {total_mb-available_mb}/{total_mb} MB"))
+    menuitem.submenu.add_item(MenuItem(f"RAM: {total_mb-available_mb}/{total_mb} MB"))
 
     
     # Uso de CPU
     cpu_usage = psutil.cpu_percent(interval=1)
-    menuitem.submenu.add_item(MenuItem(f"CPU   : {cpu_usage} %"))
+    menuitem.submenu.add_item(MenuItem(f"CPU: {cpu_usage} %"))
     
     # Temperatura de la CPU (si está disponible)
     try:
         with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
             cpu_temp_celsius = int(f.read()) / 1000
-        menuitem.submenu.add_item(MenuItem(f"TEMP  : {cpu_temp_celsius:.1f}°C"))
+        menuitem.submenu.add_item(MenuItem(f"TEMP: {cpu_temp_celsius:.1f}°C"))
     except FileNotFoundError:
-        menuitem.submenu.add_item(MenuItem("TEMP  : CANT MEASURE"))
+        menuitem.submenu.add_item(MenuItem("TEMP: UNKNOW"))
     
     # Espacio en Disco
     disk_usage = psutil.disk_usage('/')
@@ -251,7 +267,7 @@ def update_system_information_menu(menuitem):
     kernel_version = platform.release()
     os_name = platform.system() + " " + platform.version()
     menuitem.submenu.add_item(MenuItem(f"KERNEL: {kernel_version}"))
-    menuitem.submenu.add_item(MenuItem(f"OS    : {os_name}"))
+    menuitem.submenu.add_item(MenuItem(f"OS: {os_name}"))
     
     # Tiempo de actividad (Uptime)
     uptime_seconds = time.time() - psutil.boot_time()
@@ -266,11 +282,7 @@ def update_system_information_menu(menuitem):
     
     # Número de procesos en ejecución
     process_count = len(psutil.pids())
-    menuitem.submenu.add_item(MenuItem(f"PROCS : {process_count}"))
-    
-    # Tiempo desde el último reinicio del sistema
-    boot_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(psutil.boot_time()))
-    menuitem.submenu.add_item(MenuItem(f"BOOT: {boot_time}"))
+    menuitem.submenu.add_item(MenuItem(f"PROCS: {process_count}"))
     
     # Archivos y límites del sistema (inodos y otros datos)
     try:
@@ -279,12 +291,13 @@ def update_system_information_menu(menuitem):
         total_inodes = statvfs.f_files
         menuitem.submenu.add_item(MenuItem(f"INODES: {free_inodes}/{total_inodes}"))
     except Exception:
-        menuitem.submenu.add_item(MenuItem("INODES: No disponible"))
+        menuitem.submenu.add_item(MenuItem("INODES: UNKNOW"))
     
     # Elemento de retorno al menú anterior
     menuitem.submenu.add_item(MenuItem("..Back", action_select=menu_manager.back)) # back item
 
 #endregion
+
 
 #region P4WNP1 TEMPLATES 
 
@@ -328,6 +341,7 @@ def update_p4wnp1_templates_submenu(menu_name, command_flag):
 
 #endregion
 
+
 #region PROCESS MANAGER
 
 def update_process_manager_menu(menuitem):
@@ -365,7 +379,7 @@ def update_process_manager_submenu(menuitem):
 #endregion
 
 
-#region plugin MANAGER
+#region PLUGIN MANAGER
 def update_plugin_manager_menuitem(menuitem):
     from core.plugin_manager import plugin_manager
     plugin_name=menuitem.name.replace(": ON", "").replace(": OFF", "")
