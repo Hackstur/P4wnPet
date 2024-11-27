@@ -1,8 +1,12 @@
+import re
 import subprocess
 import time
+import traceback
 import pywifi
 from pywifi import const
 from core.config import config
+
+from core.functions import run_command
 
 # Configurar el logger
 from core.logger import setup_logger
@@ -89,44 +93,104 @@ def background_worker():
 
 
             # ESTADO WIFI
-            # Verificar si la interfaz WiFi está activa y obtener detalles
-            iwconfig_result = subprocess.run(['iwconfig', 'wlan0'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            # Determinar si la interfaz está en modo monitor o no
+            iwconfig_result = subprocess.run(['iwconfig'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             iwconfig_output = iwconfig_result.stdout
+            
+            config.data.wifi.signal = 0  # Interfaz no encontrada
+            # Verificar si la interfaz en modo monitor existe
+            interface_monitor = f"{config.data.wifi.nic}mon"
+            if f"{interface_monitor}" in iwconfig_output:
+                active_interface = interface_monitor
+            elif f"{config.data.wifi.nic}" in iwconfig_output:
+                active_interface = config.data.wifi.nic
+            else:
+                config.data.wifi.signal = 0  # Interfaz no encontrada
+                return
+
+            # Obtener detalles de iwconfig para la interfaz activa
+            iwconfig_result = subprocess.run(['iwconfig', active_interface], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            iwconfig_output = iwconfig_result.stdout
+
             # Verificar el modo
             if "Mode:Monitor" in iwconfig_output:
-                config.data.wifi_signal = 0  # No relevante en modo monitor
+                config.data.wifi.signal = 0  # modo monitor
             elif "Mode:Master" in iwconfig_output:
-                config.data.wifi_signal = 1  # No relevante en modo AP
+                config.data.wifi.signal = 1  # modo AP
             elif "Mode:Managed" in iwconfig_output:
-                config.data.wifi_signal = 2  # No relevante en modo AP
+                config.data.wifi.signal = 2  # Modo client
                 # Verificar si está conectado
                 if "Access Point: Not-Associated" not in iwconfig_output:
                     # Aquí tiene sentido analizar la intensidad de la señal
-                    config.data.wifi_signal = 3  # No relevante en modo AP
+                    config.data.wifi.signal = 3  # conectado
                     for line in iwconfig_output.splitlines():
                         if "Signal level" in line:
                             signal_line = line.strip()
                             signal_level = int(signal_line.split("Signal level=")[1].split(" ")[0])
                             # Clasificar la intensidad de la señal
                             if signal_level <= -80:
-                                config.data.wifi_signal = 3  # Débil
+                                config.data.wifi.signal = 3  # Débil
                             elif -80 < signal_level <= -60:
-                                config.data.wifi_signal = 4  # Moderada
+                                config.data.wifi.signal = 4  # Moderada
                             elif -60 < signal_level <= -40:
-                                config.data.wifi_signal = 5  # Buena
+                                config.data.wifi.signal = 5  # Buena
                             elif signal_level > -40:
-                                config.data.wifi_signal = 6  # Excelente
+                                config.data.wifi.signal = 6  # Excelente
                             break
                 else:
-                    config.data.wifi_signal = 2  # Desconectada
+                    config.data.wifi.signal = 2  # Desconectada
             else:
-                config.data.wifi_signal = 2 # No manejado=Desconectado  
+                config.data.wifi.signal = 2  # No manejado=Desconectado
+
+            #logger.info("Wifi SIGNAL:" + str(config.data.wifi.signal))
+
+            # ALMACENAR LISTADO DE APS DETECTADAS (se borrara en cada ciclo por el momento)
+            command="iwlist wlan0 scan | awk '/Quality|ESSID|Channel|Encryption key|WPA|WEP|WPS|Address/ { print $0 }'"
+            iwlist_result = run_command(command)
+            
+            networks=[]
+
+            pattern = (
+                r'Cell \d+ - Address:\s*([0-9A-Fa-f:]{17})\s*.*?'
+                r'Channel:(\d+)\s*.*?'
+                r'Quality=\d+/\d+\s+Signal level=-?\d+\s+dBm\s*.*?'
+                r'Encryption key:(on|off)\s*.*?'
+                r'ESSID:"([^"]*)"\s*.*?'
+                r'(?:IE:\s*(WPA3|IEEE 802\.11i/WPA2 Version 1|WPA Version 1|WEP).*?)*'
+            )
+
+            # Buscar coincidencias en el resultado del escaneo
+            matches = re.findall(pattern, iwlist_result, re.DOTALL)
+
+            # Añadir cada red WiFi como ítem en el menú
+            for match in matches:
+                mac = match[0]
+                channel = match[1]
+                encryption = match[2]
+                essid = match[3]
+
+                # Determinar el estado de la seguridad
+                security = "OPEN"
+                if encryption == "on":
+                    if "WEP" in match:
+                        security = "WEP"
+                    elif "WPA Version 1" in match:
+                        security = "WPA"
+                    elif "IEEE 802.11i/WPA2 Version 1" in match:
+                        security = "WPA2"
+                    elif "WPA3" in match:
+                        security = "WPA3"
+
+                networks.append((mac, essid, security, channel))
+
+                config.data.wifi.networks=networks
 
 
 
         except Exception as e:
             # Registrar errores y continuar el bucle
-            logger.error(f"Error en el background worker: {e}")
+            tb = traceback.format_exc()
+            logger.error(f"Error en el background worker: {e} - {tb}")
 
         # Pausa antes del siguiente ciclo
         time.sleep(5)

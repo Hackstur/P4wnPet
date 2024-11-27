@@ -6,11 +6,12 @@ import re
 import socket
 import time
 from core.config import config
-from core.menu_manager import Menu, MenuItem, menu_manager
+from core.menu_manager import *
+from core.wifi import wifi
 
 from core.event_system import event_system
 from core.process_manager import process_manager
-from core.constants import constants
+from core.constants import *
 from core.overclock import check_overclock, apply_overclock, overclock_profiles
 from core.functions import *
 import psutil
@@ -20,29 +21,57 @@ logger = setup_logger(__name__)
 
 
 def menu_creator(menu):
-        
-        menu.add_item(MenuItem( name="HOST INFORMATION", submenu=Menu("HOST INFORMATION"), action_select=lambda item: (update_host_information_menu(item))))
-        menu.add_item(MenuItem( name="SYSTEM INFORMATION", submenu=Menu("SYSTEM INFORMATION"), action_select=lambda item: (update_system_information_menu(item))))
-        menu.add_item(MenuItem( name="SETTINGS", submenu=Menu("SETTINGS"), action_select=lambda item: (update_settings_menu(item))))
-        
 
-        menu.add_item(MenuItem( name="PROCESS MANAGER", submenu=Menu("PROCESS LIST"), action_select=lambda item: (update_process_manager_menu(item)), action_update=lambda item:(update_process_manager_menu(item))))
-        menu.add_item(MenuItem( name="PLUGIN MANAGER", submenu=Menu("PLUGIN LIST"), action_select=lambda item: (update_plugin_manager_menu(item))))
-        menu.add_item(MenuItem(name="P4WNP1 TEMPLATES", submenu=Menu("SELECT TEMPLATE"), action_select=lambda item: (update_p4wnp1_templates_menu(item)))) 
-        menu.add_item(MenuItem(name="USB MASS STORAGE", submenu=Menu("SELECT IMAGE TO MOUNT"), action_select=lambda item: (update_usb_mass_storage_menu(item))))
-        menu.add_item(MenuItem(name="HID SCRIPTS & DEVICES", submenu=Menu("HID SCRIPTS & DEVICES"), action_select=lambda item: (update_hid_menu(item))))
+    system_related=SubmenuItem(name="SYSTEM RELATED")
+    system_related.submenu.add_item(SubmenuItem(name="SYSTEM INFORMATION", action_select=lambda item: ( update_system_information_menu(item))))
+    system_related.submenu.add_item(SubmenuItem(name="SYSTEM SETTINGS", action_select=lambda item: (update_settings_menu(item))))
+    system_related.submenu.add_item(SubmenuItem(name="PLUGIN MANAGER", action_select=lambda item: (update_plugin_manager_menu(item))))
+    system_related.submenu.add_item(SubmenuItem(name="PROCESS MANAGER", action_select=lambda item: (update_process_manager_menu(item))))
+    system_related.submenu.add_item(MenuItem("CLEAR TEMPORAL FILES", action_select=lambda item: (run_command("sudo rm -rf /tmp/HIDscript*"))))
 
-        submenu=Menu("RESTART OR SHUTDOWN")
-        submenu.add_item(MenuItem(name="RESTART P4WNPET", action_select=lambda item:(restart_p4wnpet() )))
-        submenu.add_item(MenuItem(name="RESTART P4WNP1", action_select=lambda item:(run_command("sudo systemctl restart P4wnP1.service") )))
-        submenu.add_item(MenuItem(name="RESTART SYSTEM", action_select=lambda item:(run_command("sudo reboot"))))
-        submenu.add_item(MenuItem(name="SHUTDOWN", action_select=lambda item:(run_command("sudo shutdown") )))
-        menu.add_item(MenuItem(name="RESTART", submenu=submenu))
+    system_related.submenu.add_item(MenuItem("..Back", action_select=menu_manager.back))
+    menu.add_item(system_related)
+
+    menu.add_item(SubmenuItem(name="P4WNP1 TEMPLATES", action_select=lambda item: (update_p4wnp1_templates_menu(item))))
+
+    menu.add_item(SubmenuItem(name="USB MASS STORAGE", action_select=lambda item: (update_usb_mass_storage_menu(item))))
+
+    menu.add_item(SubmenuItem(name="HID SCRIPTS & DEVICES", action_select=lambda item: (update_hid_menu(item))))
+
+    menu.add_item(SubmenuItem(name="WIFI AUDIT TOOLS", action_select=lambda item: (update_wifi_menu(item))))
+
+    restart=SubmenuItem(name="RESTART")
+    restart.submenu.add_item(MenuItem(name="RESTART P4WNPET", action_select=lambda item:(restart_p4wnpet() )))
+    restart.submenu.add_item(MenuItem(name="RESTART P4WNP1", action_select=lambda item:(run_command("sudo systemctl restart P4wnP1.service") )))
+    restart.submenu.add_item(MenuItem(name="RESTART SYSTEM", action_select=lambda item:(run_command("sudo reboot"))))
+    restart.submenu.add_item(MenuItem(name="SHUTDOWN", action_select=lambda item:(run_command("sudo shutdown") )))
+    menu.add_item(restart)
 
 
 def update_menuitem_text(menuitem, text):
      logger.info(f"Actualizando {menuitem.name} con {text}")
      menuitem.name=text
+
+
+def set_config(path, value):
+    keys = path.split('.')
+    current = config.data
+    try:
+        for key in keys[:-1]:  # Navegar por los niveles excepto el último
+            if hasattr(current, key):
+                current = getattr(current, key)
+            else:
+                raise KeyError(f"La clave '{key}' no existe en la configuración.")
+
+        # Establecer el nuevo valor en el nivel final
+        if hasattr(current, keys[-1]):
+            setattr(current, keys[-1], value)
+            logger.info(f"Configuración actualizada: {path} = {value}")
+            config.save_to_file("config/p4wnpet.json")  # Guardar cambios
+        else:
+            raise KeyError(f"La clave '{keys[-1]}' no existe en la configuración.")
+    except KeyError as e:
+        logger.error(f"Error al actualizar la configuración: {e}")
 
 
 def update_filesearch_menu(menuitem, base_path, action_for_file, file_extension=".json", initial_base_path=None):
@@ -71,7 +100,7 @@ def update_filesearch_menu(menuitem, base_path, action_for_file, file_extension=
         # Solo permitir retroceso si `os.path.dirname(base_path)` no sale de `initial_base_path`
         parent_path = os.path.dirname(base_path)
         if os.path.commonpath([parent_path, initial_base_path]) == initial_base_path:
-            menuitem.submenu.add_item(MenuItem(".. (parent directory)", action_select=lambda item: update_filesearch_menu(item, parent_path, action_for_file, file_extension, initial_base_path)))
+            menuitem.submenu.add_item(SubmenuItem(".. (parent directory)", action_select=lambda item: update_filesearch_menu(item, parent_path, action_for_file, file_extension, initial_base_path)))
     else:
         # En la ruta de inicio, se muestra "Back" para ir al menú anterior
         #menuitem.submenu.add_item(MenuItem("Back", action_select=self.menu_manager.back))
@@ -105,7 +134,7 @@ def update_filesearch_menu(menuitem, base_path, action_for_file, file_extension=
         for directory in directories:
             full_path = os.path.join(base_path, directory)
             if not directory.startswith("."): # ignorar archivos ocultos
-                dir_item = MenuItem(
+                dir_item = SubmenuItem(
                     name=f"[DIR] {directory}",
                     submenu=Menu(f"{directory} - {base_path}"),
                     action_select=lambda item, path=full_path: update_filesearch_menu(item, path, action_for_file, file_extension, initial_base_path)
@@ -116,7 +145,7 @@ def update_filesearch_menu(menuitem, base_path, action_for_file, file_extension=
         for file in files:
             full_path = os.path.join(base_path, file)
             if not file.startswith("."): # ignorar archivos ocultos
-                file_item = MenuItem(
+                file_item = SubmenuItem(
                     name=file,
                     action_select=lambda item, path=full_path: action_for_file(path)
                 )
@@ -132,50 +161,6 @@ def update_filesearch_menu(menuitem, base_path, action_for_file, file_extension=
     # Añadir un separador
     #menuitem.submenu.add_item(MenuItem(constants['separator']))
     menuitem.submenu.add_item(MenuItem("..Back", action_select=menu_manager.back)) # back item  
-
-
-# region SETTINGS
-# (IDEAS BYTHEWAY)
-
-def update_settings_menu(menuitem):
-    menuitem.submenu.items.clear()
-
-    # DWC2 SWITCH (in order to connect things to our pi)
-    menuitem.submenu.add_item(MenuItem(
-        name="DWC2: ENABLED" if is_dwc2_enabled() else "DWC2: DISABLED"
-        #action_select=toggle_dwc2_mode()
-    ))
-
-    menuitem.submenu.add_item(MenuItem(
-        name=f"OVERCLOCK: {check_overclock()}",
-        submenu=Menu("SELECT OVERCLOCK"),
-        action_select=lambda item: ( update_settings_overclock_submenu(item) )
-    ))
-
-    menuitem.submenu.add_item(MenuItem(
-        name="CLEAR TEMPORAL FILES",
-        action_select=run_command("rm -rf /tmp/HIDscript*")
-    ))
-
-
-
-    event_system.publish("p4wn_settings_menu", menuitem)
-    # Elemento de retorno al menú anterior
-    menuitem.submenu.add_item(MenuItem("..Back", action_select=menu_manager.back)) # back item
-
-
-def update_settings_overclock_submenu(menuitem):
-    menuitem.submenu.items.clear()
-    for profile in overclock_profiles:
-        menuitem.submenu.add_item(MenuItem(
-            name=profile,
-            action_select=lambda item: (apply_overclock(profile=item.name))
-        ))
-    
-    menuitem.submenu.add_item(MenuItem("..Back", action_select=menu_manager.back)) # back item
-
-
-#endregion
 
 
 #region HOST INFORMATION
@@ -199,7 +184,9 @@ def update_host_information_menu(menuitem):
         menuitem.submenu.add_item(MenuItem(f"OS: {detected_os}"))
         if os_details_match:
             menuitem.submenu.add_item(MenuItem(f"OS: {os_details_match.group(1).strip().replace(detected_os,'')}"))
-
+    else:
+        menuitem.submenu.add_item(MenuItem("OS: NOT DETECTED"))
+        menuitem.submenu.add_item(MenuItem("TRY INTENSE SCAN"))
 
     # Extract open ports
     for line in output.splitlines():
@@ -220,7 +207,7 @@ def update_host_information_menu(menuitem):
 #endregion
 
 
-#region SYSTEM INFORMATION
+#region SYSTEM RELATED
 
 def update_system_information_menu(menuitem):
     menuitem.submenu.items.clear()
@@ -295,6 +282,90 @@ def update_system_information_menu(menuitem):
     
     # Elemento de retorno al menú anterior
     menuitem.submenu.add_item(MenuItem("..Back", action_select=menu_manager.back)) # back item
+    logger.info("SYSTEM INFORMATION RECOPILED!")
+
+
+def update_process_manager_menu(menuitem):
+    menuitem.submenu.items.clear()
+    processes=process_manager.list_processes()
+    for process in processes:
+
+        submenu=Menu(f"{process['pid']} Options")
+        submenu.add_item(MenuItem(name="STOP", action_select=lambda item, pid=process['pid']: (
+            process_manager.stop_process(pid=pid),
+            menu_manager.back()
+        )))
+
+        submenu.add_item(MenuItem("..Back", action_select=menu_manager.back))
+
+        menuitem.submenu.add_item(SubmenuItem(
+            name=str(process['pid'])+": "+process['name'],
+            submenu=submenu,
+            action_update=lambda item: ( update_process_manager_menu(menuitem) )
+        ))
+    #menuitem.submenu.add_item(MenuItem(constants['separator'], action_select=None))  # Separador
+    menuitem.submenu.add_item(MenuItem("..Back", action_select=menu_manager.back)) # back item  
+
+
+def update_plugin_manager_menuitem(menuitem):
+    from core.plugin_manager import plugin_manager
+    plugin_name=menuitem.name.replace(": ON", "").replace(": OFF", "")
+    menuitem.name=f"{plugin_name}: {'ON' if plugin_manager.is_plugin_active(plugin_name) else 'OFF'}"
+
+
+def update_plugin_manager_menu(menuitem):
+    from core.plugin_manager import plugin_manager
+    menuitem.submenu.items.clear()
+    for plugin_name, is_active in plugin_manager.plugins_status.items():
+        menuitem.submenu.add_item(MenuItem(
+            name=f"{plugin_name}: {'ON' if is_active else 'OFF'}",
+            action_select=lambda item: (
+                    plugin_manager.toggle_plugin(item.name.replace(": ON", "").replace(": OFF", ""))
+            ),
+            action_update=lambda item :(
+                    update_plugin_manager_menuitem(item)
+            )
+        ))
+    #menuitem.submenu.add_item(MenuItem(constants['separator'], action_select=None))  # Separador
+    menuitem.submenu.add_item(MenuItem("..Back", action_select=menu_manager.back)) # back item  # incluir update para menu padre
+
+
+def update_settings_menu(menuitem):
+    menuitem.submenu.items.clear()
+    menuitem.submenu.add_item(SwitchItem(
+        name="DWC2: ",
+        state=is_dwc2_enabled(),
+        labels=("DISABLED","ENABLED"),
+        action_select=lambda item: ( toggle_dwc2_mode() )
+    ))
+
+    # HDMI
+    menuitem.submenu.add_item(SwitchItem(
+        name="HDMI: ",
+        state=is_hdmi_enabled(),
+        labels=("DISABLED", "ENABLED"),
+        action_select=lambda item: toggle_hdmi_mode()
+    ))
+
+    # Audio
+    menuitem.submenu.add_item(SwitchItem(
+        name="AUDIO: ",
+        state=is_audio_enabled(),
+        labels=("DISABLED", "ENABLED"),
+        action_select=lambda item: toggle_audio_mode()
+    ))
+
+    options_overclock=list(overclock_profiles.keys())
+    menuitem.submenu.add_item(SelectorItem(
+        name=f"OVERCLOCK: ",
+        options=options_overclock,
+        selected_index=check_overclock(),
+        action_select=lambda item: ( apply_overclock(profile=item.name.split(':')[1].replace(' ','')) ) 
+    ))
+
+    #event_system.publish("p4wn_settings_menu", menuitem)
+    # Elemento de retorno al menú anterior
+    menuitem.submenu.add_item(MenuItem("..Back", action_select=menu_manager.back)) # back item
 
 #endregion
 
@@ -313,12 +384,12 @@ def update_p4wnp1_templates_menu(menuitem):
         submenu_templates_master = update_p4wnp1_templates_submenu("MASTER", "-f")
 
         # Agregar submenús específicos al submenú de templates
-        menuitem.submenu.add_item(MenuItem("USB TEMPLATES", submenu=submenu_templates_usb))
-        menuitem.submenu.add_item(MenuItem("WIFI TEMPLATES", submenu=submenu_templates_wifi))
-        menuitem.submenu.add_item(MenuItem("BLUETOOTH TEMPLATES", submenu=submenu_templates_bluetooth))
-        menuitem.submenu.add_item(MenuItem("NETWORK TEMPLATES", submenu=submenu_templates_network))
-        menuitem.submenu.add_item(MenuItem("TRIGGER TEMPLATES", submenu=submenu_templates_trigger))
-        menuitem.submenu.add_item(MenuItem("MASTER TEMPLATES", submenu=submenu_templates_master))
+        menuitem.submenu.add_item(SubmenuItem("USB TEMPLATES", submenu=submenu_templates_usb))
+        menuitem.submenu.add_item(SubmenuItem("WIFI TEMPLATES", submenu=submenu_templates_wifi))
+        menuitem.submenu.add_item(SubmenuItem("BLUETOOTH TEMPLATES", submenu=submenu_templates_bluetooth))
+        menuitem.submenu.add_item(SubmenuItem("NETWORK TEMPLATES", submenu=submenu_templates_network))
+        menuitem.submenu.add_item(SubmenuItem("TRIGGER TEMPLATES", submenu=submenu_templates_trigger))
+        menuitem.submenu.add_item(SubmenuItem("MASTER TEMPLATES", submenu=submenu_templates_master))
         #menuitem.submenu.add_item(MenuItem(constants['separator'], action_select=None))  # Separador
         menuitem.submenu.add_item(MenuItem("..Back", action_select=menu_manager.back)) # back item     
 
@@ -342,81 +413,16 @@ def update_p4wnp1_templates_submenu(menu_name, command_flag):
 #endregion
 
 
-#region PROCESS MANAGER
-
-def update_process_manager_menu(menuitem):
-    menuitem.submenu.items.clear()
-    processes=process_manager.list_processes()
-    for process in processes:
-        menuitem.submenu.add_item(MenuItem(
-            name=str(process['pid'])+"-"+process['name'],
-            value=process['pid'],
-            submenu=Menu("PID: "+str(process['pid'])),
-            action_select=lambda item: (
-                #crear submenu con opciones de gestion
-                update_process_manager_submenu(item)
-            ),
-            action_update=lambda item: ( update_process_manager_menu(menuitem) )
-        ))
-    #menuitem.submenu.add_item(MenuItem(constants['separator'], action_select=None))  # Separador
-    menuitem.submenu.add_item(MenuItem("..Back", action_select=menu_manager.back)) # back item  
-
-
-def update_process_manager_submenu(menuitem):
-    menuitem.submenu.items.clear()
-    menuitem.submenu.add_item(MenuItem(
-            name="STOP",
-            action_select=lambda item, pid=menuitem.value: (
-                process_manager.stop_process(pid=pid),
-                menu_manager.back()
-            )
-        ))
-    #menuitem.submenu.add_item(MenuItem(constants['separator'], action_select=None))  # Separador
-    menuitem.submenu.add_item(MenuItem("..Back", action_select=menu_manager.back)) # back item  # incluir update para menu padre
-
-
-
-#endregion
-
-
-#region PLUGIN MANAGER
-def update_plugin_manager_menuitem(menuitem):
-    from core.plugin_manager import plugin_manager
-    plugin_name=menuitem.name.replace(": ON", "").replace(": OFF", "")
-    menuitem.name=f"{plugin_name}: {'ON' if plugin_manager.is_plugin_active(plugin_name) else 'OFF'}"
-
-def update_plugin_manager_menu(menuitem):
-    from core.plugin_manager import plugin_manager
-    menuitem.submenu.items.clear()
-    for plugin_name, is_active in plugin_manager.plugins_status.items():
-        menuitem.submenu.add_item(MenuItem(
-            name=f"{plugin_name}: {'ON' if is_active else 'OFF'}",
-            action_select=lambda item: (
-                    plugin_manager.toggle_plugin(item.name.replace(": ON", "").replace(": OFF", ""))
-            ),
-            action_update=lambda item :(
-                    update_plugin_manager_menuitem(item)
-            )
-        ))
-    #menuitem.submenu.add_item(MenuItem(constants['separator'], action_select=None))  # Separador
-    menuitem.submenu.add_item(MenuItem("..Back", action_select=menu_manager.back)) # back item  # incluir update para menu padre
-#endregion
-
-
 #region USB MASS STORAGE MENU
 
 def update_usb_mass_storage_menu(menuitem):
     menuitem.submenu.items.clear()
-    #menuitem.submenu.add_item(MenuItem("CREATE USB/CD IMAGE")) # to-do cuando tenga algo para introducir texto
-    #menuitem.submenu.add_item(MenuItem(constants['separator']))  # Separador
-    # buscar imagenes disponibles para montar:
     files = os.listdir("/usr/local/P4wnP1/ums/flashdrive/")
     for file in files:
         if not file.startswith("."): # ignorar archivos ocultos
             file_path = os.path.join("/usr/local/P4wnP1/ums/flashdrive/", file)
             if os.path.isfile(file_path):  # Solo agregar si es un archivo (ignorar carpetas)
                 menuitem.submenu.add_item(MenuItem(file, action_select=lambda item, file=file: run_p4wnp1_ums(file)))
-    #menuitem.submenu.add_item(MenuItem(constants['separator']))  # Separador
     menuitem.submenu.add_item(MenuItem("..Back", action_select=menu_manager.back)) # back item
 
 #endregion
@@ -424,98 +430,108 @@ def update_usb_mass_storage_menu(menuitem):
 
 #region HID SCRIPTS & DEVICES
 
-# TYPE SPEED
-def set_hid_type_speed(menuitem):   
-    config.data.hid.type_speed=menuitem.value
-    save_config()
-    menu_manager.back()
-
-def update_hid_speed_submenu(menuitem):
-    menuitem.submenu.items.clear()
-    for speed_name, speed_value in constants['hid']['speed'].items():
-        menuitem.submenu.add_item(MenuItem(
-            name=speed_name+" "+speed_value,
-            value=speed_value,
-            action_select=lambda item:(
-                 set_hid_type_speed(item)
-            )
-        ))
-    #menuitem.submenu.add_item(MenuItem(constants['separator']))  # Separador
-    menuitem.submenu.add_item(MenuItem("..Back", action_select=menu_manager.back)) # back item
-
-# HID KEYMAP
-def set_hid_keymap(menuitem):
-    config.data.hid.keymap=menuitem.value
-    save_config()
-    menu_manager.back()
-
-def update_hid_keymap_submenu(menuitem):
-    menuitem.submenu.items.clear()
-
-    for filename in os.listdir("/usr/local/P4wnP1/keymaps/"):
-        if filename.endswith(".json"):
-            file_path = os.path.join("/usr/local/P4wnP1/keymaps/", filename)
-        
-        # Abre y carga el archivo JSON
-        with open(file_path, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            
-            # Extrae el nombre y la descripción, si existen
-            name = data.get("Name", "N/A")
-            description = data.get("Description", "N/A")
-            menuitem.submenu.add_item(MenuItem(
-                name=name,
-                value=name,
-                action_select=lambda item:(
-                    set_hid_keymap(item)
-                )
-            ))
-    #menuitem.submenu.add_item(MenuItem(constants['separator']))  # Separador
-    menuitem.submenu.add_item(MenuItem("..Back", action_select=menu_manager.back)) # back item
-
-
-# HID SCRIPTS MENU
 def update_hid_menu(menuitem):
     menuitem.submenu.items.clear()
 
-    menuitem.submenu.add_item(MenuItem(
-        name=f"SPEED : {config.data.hid.type_speed}",
-        submenu=Menu("SELECT HID SPEED"),
-        action_select=lambda item: (
-             update_hid_speed_submenu(item)
-        ),
-        action_update=lambda item:(
-            update_menuitem_text(item, f"SPEED : {config.data.hid.type_speed}")
-        )                         
+    menuitem.submenu.add_item(SelectorItem(
+        name="SPEED: ",
+        options=[f"{speed.value}" for speed in HIDspeed],
+        selected_index=([f"{speed.value}" for speed in HIDspeed].index(f"{config.data.hid.type_speed}") if f"{config.data.hid.type_speed}" in [f"{speed.value}" for speed in HIDspeed] else -1),
+        action_select=lambda item: ( set_config("hid.type_speed", eval(item.name.split(':')[1].replace(' ', '')) ) )
     ))
 
-    menuitem.submenu.add_item(MenuItem(
-        name=f"KEYMAP: {config.data.hid.keymap}",
-        submenu=Menu("Select Keymap"),
-        action_select=lambda item: (
-            update_hid_keymap_submenu(item)
-        ),
-        action_update=lambda item:(
-            update_menuitem_text(item, f"KEYMAP: {config.data.hid.keymap}")
-        )
-        
+
+    keymap_options = [os.path.splitext(f)[0] for f in os.listdir("/usr/local/P4wnP1/keymaps/") if os.path.isfile(os.path.join("/usr/local/P4wnP1/keymaps/", f)) and f.endswith('.json')]
+    menuitem.submenu.add_item(SelectorItem(
+        name="KEYMAP: ",
+        options=keymap_options,
+        selected_index=( keymap_options.index(config.data.hid.keymap.strip()) if config.data.hid.keymap.strip() in keymap_options else -1),
+        action_select=lambda item: set_config("hid.keymap", item.name.split(':')[1].strip())
     ))
 
-    #menuitem.submenu.add_item(MenuItem(constants['separator']))  # Separador
-
-    menuitem.submenu.add_item(MenuItem(  # Buscar y lanzar hidscripts propios de P4wnP1
+    menuitem.submenu.add_item(SubmenuItem(  # Buscar y lanzar hidscripts propios de P4wnP1
         name="P4WNP1 HIDSCRIPTS",
         submenu=Menu("P4WNP1 HIDSCRIPTS"),
-        action_select=lambda item: (
-            update_filesearch_menu(menuitem=item, base_path="/usr/local/P4wnP1/HIDScripts/", file_extension=".js", action_for_file=run_p4wnp1_hidscript)
-        )
+        action_select=lambda item: ( update_filesearch_menu(menuitem=item, base_path="/usr/local/P4wnP1/HIDScripts/", file_extension=".js", action_for_file=run_p4wnp1_hidscript))
     )) 
 
     event_system.publish("p4wn_hidscripts_menu", menuitem) # Inyectar menus de hidscripts (JokerShell, DuckyScripts, etc). no necestan hacer "clear"
+    menuitem.submenu.add_item(MenuItem("..Back", action_select=menu_manager.back)) # back item
+
+#endregion
 
 
+#region WIFI AUDIT TOOLS
+
+def update_wifi_menu(menuitem):
+    menuitem.submenu.items.clear()
+
+    menuitem.submenu.add_item(SelectorItem(
+        name="WIFI NIC: ",
+        options=wifi.nic.list(),
+        selected_index=( wifi.nic.list().index(config.data.wifi.nic) if config.data.wifi.nic in wifi.nic.list() else -1 ),
+        action_select=lambda item: ( set_config("wifi.nic", item.name.split(':')[1].strip()) )
+    ))
+
+
+    menuitem.submenu.add_item(SwitchItem(
+        name="MONITOR MODE: ",
+        state=wifi.is_monitormode(),
+        labels=("DISABLED","ENABLED"),
+        action_select=lambda item: ( wifi.toggle_monitormode() )
+    ))
+
+    wifi_recon=Menu("WIFI RECON")
+
+    wifi_recon.add_item(SwitchItem(
+        name="STATUS: DISABLED",
+        state=wifi.is_bettercap_running(),
+        labels=['DISABLED', 'ENABLED'],
+        action_select=lambda item: ( wifi.toggle_bettercap() )
+    ))
+
+    wifi_recon.add_item(MenuItem(
+        name="MAX LOG LINES: 100"
+    ))
+
+    wifi_recon.add_item(MenuItem(
+        name="FILTERS: AP|CL|PR|ALL"
+    ))
+
+    wifi_recon.add_item(LogMonitorItem(
+        name="SHOW LOGS",
+        max_displayed_logs=100,
+        log_file="/root/P4wnPet/logs/bettercap.log",
+        filters=[
+            (r"\[BETTERCAP API\] stdout: \[\d{2}:\d{2}:\d{2}\] \[sys\.log\] \[inf\] wifi using interface", "[NIC]"),
+            (r"\[BETTERCAP API\] stdout: \[\d{2}:\d{2}:\d{2}\] \[wifi\.ap\.new\] wifi access point", "[AP]"), 
+            (r"\[BETTERCAP API\] stdout: \[\d{2}:\d{2}:\d{2}\] \[wifi\.client\.new\] new station (\w{2}(:\w{2}){5}) detected for (\S+)","[CL]"),
+            (r"[BETTERCAP API] stdout: ", ""),
+            (r"\[BETTERCAP API\] stdout: \[\d{2}:\d{2}:\d{2}\] \[sys\.log\] \[inf\] api.rest api server starting on ","[API]"),
+            (r"\[BETTERCAP API\] stdout: \[\d{2}:\d{2}:\d{2}\] \[sys\.log\] \[inf\] wifi error while activating handle: error while setting interface wlan0mon in monitor mode: Cannot set rfmon for this handle, ", "[ERR]")
+
+        ]
+    ))
+
+    menuitem.submenu.add_item(SubmenuItem(
+        name="WIFI RECON",
+        submenu=wifi_recon
+    ))
+
+
+    #menu "TARGET SELECTOR" -> selecciona un AP o cliente como objetivo para el resto de ataques
+
+    #menu "DEAUTH ATTACK" -> deautenticar cosas
+
+    #menu "GET HANDSHAKE" -> obtener handshake manualmente (o dejarlo en bucle estilo pwnagotchi)
+
+    #menu "BEACON FLOOD" -> lanzar un beaconflood
+
+    #menu "CRACK WEP" -> Crackear WEP
+
+    #menu "WPS ONESHOT" -> lanzar ataques WPS
+        
     menuitem.submenu.add_item(MenuItem("..Back", action_select=menu_manager.back)) # back item
 
 
 #endregion
-

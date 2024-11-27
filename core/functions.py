@@ -41,6 +41,7 @@ def mount_local_ums(path):
     run_command(f"sydi mkdir /mnt/{name}")
     run_command(f"sudo mount -o loop,rw {path} /mnt/{name}")
 
+
 def sync_local_ums(path):
     a=1
 
@@ -62,12 +63,10 @@ def restart_p4wnpet():
     # Termina el proceso actual para finalizar la instancia anterior
     sys.exit()
 
+
 def run_command(command, timeout=None):
-    """Ejecuta un comando y devuelve la salida, con un timeout opcional."""
-    logger.info(f"Ejecutando comando: {command}")
     try:
         result = subprocess.run(command, shell=True, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout)
-        logger.info(f"Comando ejecutado exitosamente: {command}")
         return result.stdout.decode('utf-8')
     except subprocess.CalledProcessError as e:
         logger.error(f"Error al ejecutar el comando: {command}\nSalida: {e.stdout.decode('utf-8')}\nError: {e.stderr.decode('utf-8')}")
@@ -75,76 +74,8 @@ def run_command(command, timeout=None):
         logger.warning(f"El comando ha superado el límite de tiempo: {command}")
     return ""
 
-def measure_write_speed(path, size_mb=100, sample_factor=0.1):
-    """
-    Mide la velocidad de escritura en MB/s en la ruta especificada, usando un bloque reducido y extrapolando el resultado.
-
-    :param path: Ruta donde se creará el archivo temporal (debe estar en la tarjeta SD o dispositivo a probar).
-    :param size_mb: Tamaño del archivo de prueba en megabytes (por defecto, 100 MB).
-    :param sample_factor: Porción de 1 MB a escribir en cada ciclo, se usa para extrapolar el resultado (por defecto, 0.1 MB).
-    :return: Velocidad de escritura en MB/s (redondeada a 2 decimales).
-    """
-    test_file = os.path.join(path, "write_speed_test.tmp")
-    sample_size = int(1024 * 1024 * sample_factor)  # Bloque de prueba en bytes
-    data = b'0' * sample_size
-    iterations = int(size_mb / sample_factor)  # Número de veces que escribiremos el bloque reducido
-
-    try:
-        start = time.time()
-        with open(test_file, 'wb') as file:
-            for _ in range(iterations):
-                file.write(data)
-        end = time.time()
-
-        total_time = end - start
-        write_speed = size_mb / total_time if total_time > 0 else 0
-    finally:
-        # Eliminar el archivo de prueba después de la prueba
-        if os.path.exists(test_file):
-            os.remove(test_file)
-
-    return round(write_speed, 2)
-
-def measure_read_speed(path, size_mb=100, sample_factor=0.1):
-    """
-    Mide la velocidad de lectura en MB/s desde un archivo en la ruta especificada, usando un bloque reducido y extrapolando el resultado.
-
-    :param path: Ruta donde se leerá el archivo temporal (debe estar en la tarjeta SD o dispositivo a probar).
-    :param size_mb: Tamaño del archivo de prueba en megabytes (por defecto, 100 MB).
-    :param sample_factor: Porción de 1 MB a leer en cada ciclo, se usa para extrapolar el resultado (por defecto, 0.1 MB).
-    :return: Velocidad de lectura en MB/s (redondeada a 2 decimales).
-    """
-    test_file = os.path.join(path, "read_speed_test.tmp")
-    sample_size = int(1024 * 1024 * sample_factor)  # Bloque de prueba en bytes
-    data = b'0' * sample_size
-    iterations = int(size_mb / sample_factor)  # Número de veces que leeremos el bloque reducido
-
-    # Crear el archivo de prueba para medir la velocidad de lectura
-    with open(test_file, 'wb') as file:
-        for _ in range(iterations):
-            file.write(data)
-
-    try:
-        start = time.time()
-        with open(test_file, 'rb') as file:
-            for _ in range(iterations):
-                file.read(sample_size)
-        end = time.time()
-
-        total_time = end - start
-        read_speed = size_mb / total_time if total_time > 0 else 0
-    finally:
-        # Eliminar el archivo de prueba después de la prueba
-        if os.path.exists(test_file):
-            os.remove(test_file)
-
-    return round(read_speed, 2)
 
 def toggle_dwc2_mode():
-    """
-    Alterna el estado del controlador dwc2 en el archivo config.txt.
-    Si está activado, lo desactiva. Si está desactivado, lo activa.
-    """
     try:
         # Leer el archivo de configuración
         with open("/boot/config.txt", 'r') as file:
@@ -159,36 +90,129 @@ def toggle_dwc2_mode():
                 for line in lines:
                     if "dtoverlay=dwc2" not in line:
                         file.write(line)
-            print("Modo dwc2 desactivado correctamente.")
         else:
             with open("/boot/config.txt", 'a') as file:
                 file.write("\ndtoverlay=dwc2\n")
-            print("Modo dwc2 activado correctamente.")
 
         # Ejecutar el comando para reiniciar el sistema
-        print("Reiniciando el sistema...")
         run_command("sudo reboot")
 
     except Exception as e:
-        print(f"Error al alternar el modo dwc2: {e}")
+        logger.error(f"Error al alternar el modo dwc2: {e}")
 
 
 def is_dwc2_enabled():
-    """
-    Verifica si el modo dwc2 está activado en el archivo config.txt.
-    :return: True si está activado, False si no lo está.
-    """
     try:
         with open("/boot/config.txt", 'r') as file:
             lines = file.readlines()
 
         # Verificar si la línea "dtoverlay=dwc2" está presente en el archivo
         if "dtoverlay=dwc2" in ''.join(lines):
-            print("El modo dwc2 está activado.")
             return True
         else:
-            print("El modo dwc2 no está activado.")
             return False
     except Exception as e:
-        print(f"Error al verificar el modo dwc2: {e}")
+        return False
+
+
+def is_hdmi_enabled():
+    """
+    Verifica si el HDMI está activado en el archivo config.txt.
+    :return: True si está activado, False si no lo está.
+    """
+    try:
+        with open("/boot/config.txt", 'r') as file:
+            lines = file.readlines()
+
+        if "hdmi_blanking=0" in ''.join(lines):
+            print("HDMI está activado.")
+            return True
+        else:
+            print("HDMI no está activado.")
+            return False
+    except Exception as e:
+        print(f"Error al verificar el estado del HDMI: {e}")
+        return False
+    
+
+def toggle_hdmi_mode():
+    """
+    Alterna el estado del HDMI en el archivo config.txt.
+    Si está activado, lo desactiva. Si está desactivado, lo activa.
+    """
+    try:
+        with open("/boot/config.txt", 'r') as file:
+            lines = file.readlines()
+
+        # Verificar si está habilitado `hdmi_blanking=1`
+        hdmi_enabled = "hdmi_blanking=0" in ''.join(lines)
+
+        if hdmi_enabled:
+            with open("/boot/config.txt", 'w') as file:
+                for line in lines:
+                    if "hdmi_blanking=0" not in line:
+                        file.write(line)
+            print("HDMI desactivado correctamente.")
+        else:
+            with open("/boot/config.txt", 'a') as file:
+                file.write("\nhdmi_blanking=0\n")
+            print("HDMI activado correctamente.")
+
+        # Reiniciar para aplicar cambios
+        print("Reiniciando el sistema...")
+        run_command("sudo reboot")
+
+    except Exception as e:
+        print(f"Error al alternar el modo HDMI: {e}")
+
+        
+
+def toggle_audio_mode():
+    """
+    Alterna el estado del audio en el archivo config.txt.
+    Si está activado, lo desactiva. Si está desactivado, lo activa.
+    """
+    try:
+        with open("/boot/config.txt", 'r') as file:
+            lines = file.readlines()
+
+        # Verificar si `dtparam=audio=on` está presente
+        audio_enabled = "dtparam=audio=on" in ''.join(lines)
+
+        if audio_enabled:
+            with open("/boot/config.txt", 'w') as file:
+                for line in lines:
+                    if "dtparam=audio=on" not in line:
+                        file.write(line)
+            print("Audio desactivado correctamente.")
+        else:
+            with open("/boot/config.txt", 'a') as file:
+                file.write("\ndtparam=audio=on\n")
+            print("Audio activado correctamente.")
+
+        # Reiniciar para aplicar cambios
+        print("Reiniciando el sistema...")
+        run_command("sudo reboot")
+
+    except Exception as e:
+        print(f"Error al alternar el modo de audio: {e}")
+
+
+def is_audio_enabled():
+    """
+    Verifica si el audio está activado en el archivo config.txt.
+    :return: True si está activado, False si no lo está.
+    """
+    try:
+        with open("/boot/config.txt", 'r') as file:
+            lines = file.readlines()
+
+        if "dtparam=audio=on" in ''.join(lines):
+            print("Audio está activado.")
+            return True
+        else:
+            print("Audio no está activado.")
+            return False
+    except Exception as e:
+        print(f"Error al verificar el estado del audio: {e}")
         return False

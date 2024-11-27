@@ -1,6 +1,6 @@
 import subprocess
 import requests
-from core.menu_manager import Menu, MenuItem
+from core.menu_manager import *
 from core.menu import update_filesearch_menu
 from core.functions import run_command
 from core.config import config
@@ -33,22 +33,11 @@ class JokerShell:
         
         # SUBSCRIBE EVENTS
         event_system.subscribe("p4wn_hidscripts_menu", self._on_hidscripts_menu) 
-        event_system.subscribe("p4wn_settings_menu", self._on_settings_menu)
 
     def stop(self):
         event_system.unsubscribe("p4wn_hidscripts_menu", self._on_hidscripts_menu)
-        event_system.unsubscribe("p4wn_hidscripts_menu", self._on_settings_menu)
-        
 
-    def _on_settings_menu(self, menuitem):
-        submenu=Menu("JOKERSHELL SETTINGS")
-        submenu.add_item(MenuItem(
-            name="DEPLOY: TYPE",    #TYPE / SHARED / UMS / WEBSRV / GITHUB (por ejemplo)
-        ))
-        menuitem.submenu.add_item(MenuItem(
-            name="JOKERSHELL SETTINGS",
-            submenu=submenu,
-        ))
+
 
     def _on_hidscripts_menu(self, menuitem):
 
@@ -58,7 +47,7 @@ class JokerShell:
                 action_select=self.download_jokershell()
             ))
         else:
-            menuitem.submenu.add_item(MenuItem(
+            menuitem.submenu.add_item(SubmenuItem(
                 name="JOKERSHELL SCRIPTS",
                 submenu=Menu("JOKERSHELL SCRIPTS"),
                 action_select=lambda item: (

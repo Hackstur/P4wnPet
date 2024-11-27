@@ -16,32 +16,14 @@ from core.background import background_worker
 logger = setup_logger(__name__)
 
 class SingletonApp:
-    """
-    Clase que asegura que solo una instancia de la aplicación se ejecute al mismo tiempo,
-    utilizando un archivo de PID para gestionar la instancia única.
-    
-    Attributes:
-        pid_file (str): Ruta al archivo que almacena el PID de la aplicación.
-        pid_file_handle (file object): Referencia al archivo de PID abierto para bloqueo.
-    """
     
     def __init__(self, pid_file):
-        """
-        Inicializa la clase SingletonApp con la ruta al archivo de PID.
-        
-        Args:
-            pid_file (str): Ruta al archivo donde se almacenará el PID.
-        """
         self.pid_file = pid_file
         self.pid_file_handle = None
         logger.info(f"Inicializando SingletonApp con archivo PID en {self.pid_file}")
     
     def ensure_single_instance(self):
-        """
-        Asegura que solo una instancia de la aplicación se esté ejecutando.
-        Si se encuentra una instancia anterior, intenta detenerla y eliminar el archivo PID,
-        luego continúa con la ejecución.
-        """
+
         try:
             # Verificar si el archivo PID existe
             if os.path.exists(self.pid_file):
@@ -89,12 +71,7 @@ class SingletonApp:
             sys.exit(1)
 
     def cleanup(self):
-        """
-        Limpia el archivo de PID y libera el bloqueo.
-        
-        Se llama típicamente al final de la ejecución de la aplicación para
-        liberar los recursos y eliminar el archivo PID.
-        """
+
         try:
             if self.pid_file_handle:
                 fcntl.lockf(self.pid_file_handle, fcntl.LOCK_UN)
@@ -107,9 +84,7 @@ class SingletonApp:
 
 
 def main():
-    """
-    Función principal de la aplicación. Configura la instancia única y maneja la ejecución principal.
-    """
+
     logger.info("Iniciando P4wnPet")
     
     # Crear una instancia de SingletonApp para asegurar ejecución única
@@ -119,14 +94,6 @@ def main():
 
     try:
 
-        
-        # ACTIVAMOS PLUGIN POR DEFECTO EN DEBUG (NOTA!) (preparar algo similar en consola)
-        #plugin_to_activate = "SH1106_128_64"
-        #if plugin_to_activate:
-        #    logger.info("iniciando modulo debug")
-        #    if not plugin_manager.is_plugin_active(plugin_to_activate):
-        #        logger.info("modulo debug lanzado!")
-        #        plugin_manager.toggle_plugin(plugin_to_activate)  # Activar el módulo
 
         # CONFIGURAMOS LOS MENUS DESPUES DE LOS PLUGINS PARA QUE SE SUBSCRIBAN
         main_menu=Menu("P4WNPET")

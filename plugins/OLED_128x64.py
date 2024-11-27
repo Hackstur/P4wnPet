@@ -1,4 +1,5 @@
 #imports 
+from enum import Enum
 import asyncio
 import traceback
 from luma.core.interface.serial import spi
@@ -11,7 +12,7 @@ from PIL import ImageDraw
 from PIL import ImageFont
 
 
-from core.menu_manager import Menu, MenuItem, menu_manager
+from core.menu_manager import *
 from core.config import config
 
 from core.event_system import event_system
@@ -41,13 +42,17 @@ class Icons:
     Wifi=Image.open("plugins/OLED/icons/wifi_signal.png")
 
 
+class UIType:
+    Minimal=0
+    Normal=1
+
+
 
 class OLED_128x64:
     def __init__(self):
         self.name="OLED 128x64 Display"
         self.author="Hackstur"
         self.description="Manage OLED 128x64 dislay"
-        
         
         
     def initialize(self):
@@ -78,9 +83,13 @@ class OLED_128x64:
 
         
         # ADJUST MENU
+        # minimal setup (no icons)
+        self.ui=UIType.Minimal
+        
         self.menu_max_lines = 5
         self.menu_line_size = 9
         
+
 
         # IMAGE BUFFER
         self.image=Image.new('1',(128,64))
@@ -130,9 +139,6 @@ class OLED_128x64:
             self.pet_sprite.update() # pet
             self.pet_sprite.draw(self.image) # pet
 
-            
-
-            # test iconos pet
 
             # Finalmente, envía la imagen completa al dispositivo
             self.device.display(self.image)
@@ -148,11 +154,12 @@ class OLED_128x64:
         icons_to_draw=[]
         
         # wifi icon crop
-        if hasattr(config.data, 'wifi_signal') and config.data.wifi_signal:
+        if hasattr(config.data.wifi, 'signal') and config.data.wifi.signal is not None:
             icon_width=17
             icon_height=12
-            icon_x=config.data.wifi_signal*icon_width
+            icon_x=config.data.wifi.signal*icon_width
             icons_to_draw.append(Icons.Wifi.crop((icon_x,0,icon_x+icon_width,icon_height)))
+
 
         if (hasattr(config.data, 'rndis') and config.data.rndis) or (hasattr(config.data, 'cdc_ecm') and config.data.cdc_ecm):
             icons_to_draw.append(Icons.NetUsb)
@@ -209,10 +216,10 @@ class OLED_128x64:
 
                 elif GPIO.event_detected(self.key['press']):
                     logger.info("KEY PRESS")
-                    if menu_manager.current_menu.get_current_item().action_select:
+                    current_item = menu_manager.current_menu.get_current_item() 
+                    if hasattr(current_item, 'action_select') and callable(current_item.action_select):
                         menu_manager.select_current_item()
-                    elif menu_manager.current_menu.get_current_item().submenu:
-                        
+                    elif hasattr(current_item, 'submenu') and current_item.submenu:
                         menu_manager.select_current_item()
                 
                 elif GPIO.event_detected(self.key['right']):
@@ -398,7 +405,7 @@ class OLED_128x64:
             name="OLED HID GAMEPAD",
             action_select=lambda item:(self.open_gamepad())
         ))
-        menuitem.submenu.add_item(MenuItem(
+        menuitem.submenu.add_item(SubmenuItem(
             name="OLED HID DEVICES",
             submenu=submenu
         ))

@@ -21,44 +21,55 @@ I'm trying to create something similar to the Bashbunny, but I believe that with
 
 Currently working features:
 
-- P4wnPet strong core: Plugin manager, Event system and Process Manager. The menu manager i think can be better.. but for now, works "fine".
+- P4wnPet strong core: 
+  - Plugin manager
+  - Event system
+  - Process Manager
+  - Menu manager (i think can be better.. but for now, works "fine").
+
 - 2 example plugins:
-  - OLED Waveshare 128x64 display
+  - OLED Waveshare 128x64 display (Maybe will be moved to core)
   - JokerShell, pranks in powershell
-- Menu for deploy:
+
+- Menus for deploy:
   - P4wnP1 Templates
-  - P4wnP1 HIDScript background jobs (Show as processes in process manager)
-  - OS SHELL Scripts (Powershell, CMD, etc) (No menu by now, but JokerShell plugin is an example)
-  - HID Mouse & Gamepad
-  - NMAP Host OS detection and port scan (Only for usb)
+
+- System Information: accurated system info.
+
+- Settings:
+  - Toggle DWC2, AUDIO, HDMI
+  - Overclock
+
+- Useful Commands:
+  - Clear HIDscript Temporal files
+  - Restart or shutdown P4wnPet related services/System
+
+- USB Mass Storage
+  - Mount .bin images as USB
+
+- HID P4wns
+ - HIDScripts (Launch P4wnP1 HIDScripts)
+ - HIDDevices (Emulate devices with P4wnP1 HIDScript)
+   - Mouse
+   - Gamepad
+   - Keyboard (WIP)
+ - HOST Information (Get information with NMAP from USB connected host)
 
 
-Work in progress Features:
-
-- HID Keyboard
-- Pet skin system
-- OLED Waveshare 128x64 plugin
-- Pet sprite and behaviorpattern system
-- Usable alert window
-- Queue for handle alerts (Message system?)
-- Status bar indicators
-- Some kind of info panel in right side (overlay carrousel?)
-- General settings and utilities (overclock, clear tmp files, etc)
+- WIFI P4wns
+  - Toggle monitor mode (maybe will be mixed with other commands to be more user friendly)
+  - Bettercap recon (WIP)
 
 
 
-Wishes and ideas:
-
- - DuckyScript v3 parser
- - Use ALPHA Channel in PNG
- - Some UI for introduce data (related to HID keyboard)
- - Wifi and Bluetooth sections (BlueDucky, Handshake collector, beaconspam)
- - Module to interact with external HW, like:
-   - Flash DigiSpark (Or other boards)
-   - Handle Proxmark
-   - Handle RTL-SDR/Sub GHz
- - Check if its possible make a phisical keylogger dump, cos if you plug a external keyboard to the pi, and plug to a computer, it detects the keyboard...
-
+Wishes:
+- DuckyScript interpreter
+- Bashbunny interpreter
+- DigiSpark board flash
+- Proxmark handler
+- BlueDucky P4wn.. (start bluetooth p4wn)
+- More ideas :D
+- Document and optimice all code, now is CHAOS!
 
 <br/>
 
