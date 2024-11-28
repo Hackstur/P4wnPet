@@ -2,15 +2,13 @@ import re
 import subprocess
 import time
 import traceback
-import pywifi
-from pywifi import const
+
 from core.config import config
 
 from core.functions import run_command
 
-# Configurar el logger
-from core.logger import setup_logger
-logger = setup_logger(__name__)
+from core.logger import LoggerSingleton
+logger = LoggerSingleton().get_logger(__name__)
 
 def background_worker():
     while True:

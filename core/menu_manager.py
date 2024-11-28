@@ -2,8 +2,8 @@ import os
 import re
 import threading
 import time
-from core.logger import setup_logger
-logger = setup_logger(__name__)
+from core.logger import LoggerSingleton
+logger = LoggerSingleton().get_logger(__name__)
 
 
 class MenuItem:
@@ -136,11 +136,14 @@ class LogMonitorItem(SubmenuItem):
         self.update_interval = update_interval  # Intervalo en segundos para comprobar nuevos logs
         self.filters = filters if filters else []  # Lista de filtros (tuplas de regex y reemplazo)
         self.last_read_position = 0  # Inicializamos la posición de lectura al principio del archivo
-
+        self.action_update=self.update()
+        
         if self.log_file and os.path.exists(self.log_file):
             self._load_logs_from_file()  # Cargar logs desde el fichero, si existe
 
         self._start_log_update_thread()  # Iniciar el hilo para actualizar los logs automáticamente
+
+
 
     def _start_log_update_thread(self):
         """Inicia un hilo que actualiza los logs automáticamente."""
@@ -154,7 +157,7 @@ class LogMonitorItem(SubmenuItem):
             time.sleep(self.update_interval)  # Espera el intervalo antes de verificar el archivo
             if self.log_file and os.path.exists(self.log_file):
                 self._load_new_logs_from_file()  # Cargar solo los logs nuevos
-                self._update_displayed_logs()  # Actualiza el menú con los logs
+                self.update()
 
     def _apply_filters(self, log_message):
         """Aplica los filtros de reemplazo a un mensaje de log."""
@@ -225,6 +228,7 @@ class LogMonitorItem(SubmenuItem):
 
     def update(self):
         self._update_displayed_logs()
+        self.update_name()
 
     def clear_logs(self):
         """Limpia todos los logs del monitor en memoria."""

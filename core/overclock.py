@@ -1,8 +1,5 @@
-
-
-from core.logger import setup_logger
-logger = setup_logger(__name__)
-
+from core.logger import LoggerSingleton
+logger = LoggerSingleton().get_logger(__name__)
 
 # Parámetros de overclock a verificar
 overclock_keywords = [
@@ -51,6 +48,7 @@ overclock_profiles = {
 }
 
 def check_overclock(file_path='/boot/config.txt'):
+    """Verifica las configuraciones de overclock actuales."""
     try:
         with open(file_path, 'r') as file:
             config_lines = file.readlines()
@@ -74,9 +72,12 @@ def check_overclock(file_path='/boot/config.txt'):
     except FileNotFoundError:
         logger.error(f"Error: El archivo {file_path} no fue encontrado.")
         return None
-
+    except Exception as e:
+        logger.error(f"Error al verificar las configuraciones de overclock: {e}")
+        return None
 
 def apply_overclock(file_path='/boot/config.txt', profile='no_overclock'):
+    """Aplica el perfil de overclock especificado."""
     if profile not in overclock_profiles:
         logger.error(f"Error: El perfil de overclock '{profile}' no es válido.")
         return False
@@ -85,21 +86,25 @@ def apply_overclock(file_path='/boot/config.txt', profile='no_overclock'):
     
     try:
         with open(file_path, 'r') as file:
-            config_lines = file.readlines()
+            lines = file.readlines()
 
-        if profile == 'no_overclock':
-            config_lines = [line for line in config_lines if not any(keyword in line for keyword in overclock_keywords)]
-        else:
-            config_lines = [line for line in config_lines if not any(keyword in line for keyword in overclock_keywords)]
+        new_lines = []
+        for line in lines:
+            if not any(keyword in line for keyword in overclock_keywords):
+                new_lines.append(line)
+
+        if config is not None:
             for key, value in config.items():
-                config_lines.append(f"{key}={value}\n")
-        
-        with open(file_path, 'w') as file:
-            file.writelines(config_lines)
-        
-        logger.info(f"Configuración de overclock '{profile}' aplicada correctamente.")
-        return True
+                new_lines.append(f"{key}={value}\n")
 
+        with open(file_path, 'w') as file:
+            file.writelines(new_lines)
+
+        logger.info(f"Perfil de overclock '{profile}' aplicado correctamente.")
+        return True
     except FileNotFoundError:
         logger.error(f"Error: El archivo {file_path} no fue encontrado.")
+        return False
+    except Exception as e:
+        logger.error(f"Error al aplicar el perfil de overclock '{profile}': {e}")
         return False

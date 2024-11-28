@@ -4,11 +4,22 @@ import json
 import sys
 import traceback
 
-from core.logger import setup_logger
-logger = setup_logger(__name__)
+from core.logger import LoggerSingleton
+logger = LoggerSingleton().get_logger(__name__)
 
 class PluginManager:
+    _instance = None
+
+    def __new__(cls, *args, **kwargs):
+        if cls._instance is None:
+            cls._instance = super(PluginManager, cls).__new__(cls, *args, **kwargs)
+            cls._instance._initialized = False
+        return cls._instance
+
     def __init__(self):
+        if self._initialized:
+            return
+        self._initialized = True
         logger.info("Iniciando el sistema de gestión de plugins")
         
         # Atributos
@@ -23,16 +34,24 @@ class PluginManager:
         # Escanear el directorio de plugins
         self.scan_plugins()
 
+        # Activar plugins según la configuración
+        self.activate_plugins_from_config()
+
     def load_configuration(self):
+        """Carga la configuración de los plugins desde un archivo JSON."""
         if os.path.exists(self.config_file):
-            with open(self.config_file, 'r') as f:
-                self.plugins_status = json.load(f)
-            logger.info(f"Configuración de plugins cargada desde {self.config_file}")
+            try:
+                with open(self.config_file, 'r') as f:
+                    self.plugins_status = json.load(f)
+                logger.info(f"Configuración de plugins cargada desde {self.config_file}")
+            except Exception as e:
+                logger.error(f"Error al cargar la configuración de plugins: {e}")
         else:
             self.plugins_status = {}
             logger.info("No se encontró un archivo de configuración. Se inicializa una configuración vacía.")
 
     def save_configuration(self):
+        """Guarda la configuración de los plugins en un archivo JSON."""
         try:
             with open(self.config_file, 'w') as f:
                 json.dump(self.plugins_status, f)
@@ -41,6 +60,7 @@ class PluginManager:
             logger.error(f"Error al guardar la configuración de plugins: {e}")
 
     def scan_plugins(self):
+        """Escanea el directorio de plugins y carga los plugins disponibles."""
         logger.info("Escaneando el directorio de plugins...")
         
         # Confirmar que el directorio de plugins existe
@@ -54,47 +74,81 @@ class PluginManager:
             # Verificar si es un archivo Python (.py) y no es __init__.py
             if file_name.endswith('.py') and not file_name.startswith('__'):
                 module_name = file_name[:-3]  # Quitar el '.py' del nombre del archivo
-                sys.path.insert(0, self.plugin_directory)  # Añadir el directorio de plugins al path
-                
                 try:
-                    # Importamos el módulo del plugin
-                    plugin_module = importlib.import_module(module_name)
-                    self._load_plugin_class(plugin_module, module_name)
+                    module = importlib.import_module(f"{self.plugin_directory}.{module_name}")
+                    plugin_class = getattr(module, module_name, None)
+                    if plugin_class:
+                        plugin_instance = plugin_class()
+                        self.load_plugin(module_name, plugin_instance)
+                        logger.info(f"Plugin {module_name} cargado desde {module_name}.py")
+                    else:
+                        logger.warning(f"No se encontró una clase {module_name} en {module_name}.py")
                 except Exception as e:
-                    logger.error(f"Error al importar el plugin {module_name}: {e}")
-                    logger.error("Detalles del error:")
+                    logger.error(f"Error al cargar el plugin {module_name}: {e}")
                     logger.error(traceback.format_exc())
-                finally:
-                    sys.path.pop(0)
 
-        # Después de escanear todos los plugins, verificamos el estado y activamos los que estén activos en la configuración
-        self.activate_plugins_from_config()
-        
-        self.save_configuration()
-        logger.info("Escaneo de plugins completado")
+    def load_plugin(self, plugin_name, plugin_instance):
+        """Carga un plugin en el sistema."""
+        self.plugin_instances[plugin_name] = plugin_instance
+        # No sobrescribir el estado del plugin si ya está en la configuración
+        if plugin_name not in self.plugins_status:
+            self.plugins_status[plugin_name] = False
+        logger.info(f"Plugin {plugin_name} cargado correctamente.")
 
-    def _load_plugin_class(self, plugin_module, module_name):
-        class_name = module_name  # El nombre de la clase es el nombre del archivo
-        if hasattr(plugin_module, class_name):
-            plugin_class = getattr(plugin_module, class_name)
-            plugin_instance = plugin_class()  # Crear una instancia del plugin
-
-            self.plugin_instances[module_name] = plugin_instance
-
-            # Actualizar estado del plugin si no estaba registrado
-            if module_name not in self.plugins_status:
-                self.plugins_status[module_name] = False  # Inactivo por defecto
-
-            logger.info(f"Plugin encontrado: {plugin_instance.name} por {plugin_instance.author}")
+    def unload_plugin(self, plugin_name):
+        """Descarga un plugin del sistema."""
+        if plugin_name in self.plugin_instances:
+            self.deactivate_plugin(plugin_name)
+            del self.plugin_instances[plugin_name]
+            del self.plugins_status[plugin_name]
+            logger.info(f"Plugin {plugin_name} descargado correctamente.")
         else:
-            logger.warning(f"No se encontró una clase {class_name} en {module_name}.py")
+            logger.error(f"El plugin '{plugin_name}' no existe en la configuración")
+
+    def activate_plugin(self, plugin_name):
+        """Activa un plugin."""
+        if plugin_name in self.plugin_instances:
+            plugin_instance = self.plugin_instances[plugin_name]
+            try:
+                if hasattr(plugin_instance, 'initialize'):
+                    plugin_instance.initialize()
+                    self.plugins_status[plugin_name] = True
+                    logger.info(f"Plugin {plugin_instance.name} activado correctamente.")
+                else:
+                    logger.error(f"El plugin {plugin_name} no tiene un método 'initialize'.")
+            except Exception as e:
+                logger.error(f"Error al activar el plugin {plugin_name}: {e}")
+        else:
+            logger.error(f"El plugin '{plugin_name}' no está cargado o no existe.")
+
+    def deactivate_plugin(self, plugin_name):
+        """Desactiva un plugin."""
+        if plugin_name in self.plugin_instances:
+            plugin_instance = self.plugin_instances[plugin_name]
+            if hasattr(plugin_instance, 'stop'):
+                try:
+                    plugin_instance.stop()
+                    self.plugins_status[plugin_name] = False
+                    logger.info(f"Plugin {plugin_instance.name} desactivado correctamente.")
+                except Exception as e:
+                    logger.error(f"Error al detener el plugin {plugin_name}: {e}")
+            else:
+                logger.error(f"El plugin {plugin_name} no tiene un método 'stop'.")
+        else:
+            logger.error(f"El plugin '{plugin_name}' no está cargado o no existe.")
+
+    def is_plugin_active(self, plugin_name):
+        """Verifica si un plugin está activo."""
+        return self.plugins_status.get(plugin_name, False)
 
     def activate_plugins_from_config(self):
+        """Activa los plugins según la configuración guardada."""
         for plugin_name, is_active in self.plugins_status.items():
             if is_active:
                 self.activate_plugin(plugin_name)
 
     def toggle_plugin(self, plugin_name):
+        """Activa o desactiva un plugin según su estado actual."""
         if plugin_name in self.plugins_status:
             new_status = not self.plugins_status[plugin_name]
             self.plugins_status[plugin_name] = new_status
@@ -108,30 +162,5 @@ class PluginManager:
         else:
             logger.error(f"El plugin '{plugin_name}' no existe en la configuración")
 
-    def activate_plugin(self, plugin_name):
-        if plugin_name in self.plugin_instances:
-            plugin_instance = self.plugin_instances[plugin_name]
-            try:
-                plugin_instance.initialize()
-                logger.info(f"Plugin {plugin_instance.name} activado correctamente.")
-            except Exception as e:
-                logger.error(f"Error al activar el plugin {plugin_name}: {e}")
-        else:
-            logger.error(f"El plugin '{plugin_name}' no está cargado o no existe.")
 
-    def deactivate_plugin(self, plugin_name):
-        if plugin_name in self.plugin_instances:
-            plugin_instance = self.plugin_instances[plugin_name]
-            if hasattr(plugin_instance, 'stop'):
-                try:
-                    plugin_instance.stop()
-                    logger.info(f"Plugin {plugin_instance.name} desactivado correctamente.")
-                except Exception as e:
-                    logger.error(f"Error al detener el plugin {plugin_name}: {e}")
-        else:
-            logger.error(f"El plugin '{plugin_name}' no está cargado o no existe.")
-
-    def is_plugin_active(self, plugin_name):
-        return self.plugins_status.get(plugin_name, False)
-
-plugin_manager=PluginManager()
+plugin_manager=None

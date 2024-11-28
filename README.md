@@ -63,24 +63,23 @@ Currently working features:
 
 
 Wishes:
+
 - DuckyScript interpreter
 - Bashbunny interpreter
 - DigiSpark board flash
 - Proxmark handler
-- BlueDucky P4wn.. (start bluetooth p4wn)
+- Bluetooth p4wns
 - More ideas :D
-- Document and optimice all code, now is CHAOS!
+- Document and optimize all code, now is CHAOS!
 
 <br/>
 
 
 Projects that inspire me:
 
- - https://github.com/RoganDawes/P4wnP1_aloa
-
- - https://github.com/NightRang3r/P4wnP1-A.L.O.A.-Payloads
-
- - https://github.com/evilsocket/pwnagotchi
+- https://github.com/RoganDawes/P4wnP1_aloa
+- https://github.com/NightRang3r/P4wnP1-A.L.O.A.-Payloads
+- https://github.com/evilsocket/pwnagotchi
 
 
 
@@ -88,19 +87,21 @@ Projects that inspire me:
 
 > If you want to **improve** this project, please, **read** the [`Contributors section`](#-contribute).
 
-
 ## 💎 Contribute
-Feel free to send us a message for anything. We'd love to ear about improve!.
+
+Feel free to send us a message for anything. We'd love to hear about improvements!
 
 Please, have a look at the [Contributor Covenant][contributor covenant].
 
 <!-- TEAM -->
 
 ## 🏀 Team  
+
 Only me.
 
 <!-- LICENSE -->
 ## 🎓 License  
+
 <sub> © 2024 Hackstur </sub>  
 
 This project is released under the terms of the [MIT][license file] license.
@@ -108,4 +109,4 @@ This project is released under the terms of the [MIT][license file] license.
 <!------------ RELATIVE LINKS ----------->
 
 [license file]: LICENSE  
-[contributor covenant]: https://www.contributor-covenant.org/version/1/4/code-of-conduct.htm  
+[contributor covenant]: https://www.contributor-covenant.org/version/1/4/code-of-conduct.htm

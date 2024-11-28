@@ -6,8 +6,8 @@ from core.config import config
 from core.bettercap import *
 from core.process_manager import process_manager
 
-from core.logger import setup_logger
-logger = setup_logger(__name__)
+from core.logger import LoggerSingleton
+logger = LoggerSingleton().get_logger(__name__)
 
 # POC de modulo de control total para wifi (si me gusta la idea hare mas similares...)
 

@@ -18,8 +18,8 @@ from core.config import config
 from core.event_system import event_system
 from plugins.OLED.sprite import Sprite
 
-from core.logger import setup_logger
-logger = setup_logger(__name__)
+from core.logger import LoggerSingleton
+logger = LoggerSingleton().get_logger(__name__)
 
 
 class Fonts:
@@ -56,6 +56,7 @@ class OLED_128x64:
         
         
     def initialize(self):
+        logger.info("Initialize OLED 128x64 Display")
         # LOOP LOCK
         self.active=False
         # KEY VARS

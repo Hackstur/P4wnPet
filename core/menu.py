@@ -1,4 +1,3 @@
-
 import json
 import os
 import platform
@@ -16,8 +15,8 @@ from core.overclock import check_overclock, apply_overclock, overclock_profiles
 from core.functions import *
 import psutil
 
-from core.logger import setup_logger
-logger = setup_logger(__name__)
+from core.logger import LoggerSingleton
+logger = LoggerSingleton().get_logger(__name__)
 
 
 def menu_creator(menu):
@@ -490,26 +489,26 @@ def update_wifi_menu(menuitem):
         action_select=lambda item: ( wifi.toggle_bettercap() )
     ))
 
-    wifi_recon.add_item(MenuItem(
-        name="MAX LOG LINES: 100"
-    ))
-
-    wifi_recon.add_item(MenuItem(
-        name="FILTERS: AP|CL|PR|ALL"
-    ))
-
+    
+    #experimento para un monitor de logs de bettercap.... no me acaba de convencer
     wifi_recon.add_item(LogMonitorItem(
         name="SHOW LOGS",
         max_displayed_logs=100,
         log_file="/root/P4wnPet/logs/bettercap.log",
         filters=[
-            (r"\[BETTERCAP API\] stdout: \[\d{2}:\d{2}:\d{2}\] \[sys\.log\] \[inf\] wifi using interface", "[NIC]"),
-            (r"\[BETTERCAP API\] stdout: \[\d{2}:\d{2}:\d{2}\] \[wifi\.ap\.new\] wifi access point", "[AP]"), 
-            (r"\[BETTERCAP API\] stdout: \[\d{2}:\d{2}:\d{2}\] \[wifi\.client\.new\] new station (\w{2}(:\w{2}){5}) detected for (\S+)","[CL]"),
-            (r"[BETTERCAP API] stdout: ", ""),
-            (r"\[BETTERCAP API\] stdout: \[\d{2}:\d{2}:\d{2}\] \[sys\.log\] \[inf\] api.rest api server starting on ","[API]"),
-            (r"\[BETTERCAP API\] stdout: \[\d{2}:\d{2}:\d{2}\] \[sys\.log\] \[inf\] wifi error while activating handle: error while setting interface wlan0mon in monitor mode: Cannot set rfmon for this handle, ", "[ERR]")
-
+            (r"\[BETTERCAP API\] stdout: \[\d{2}:\d{2}:\d{2}\] \[sys\.log\] \[inf\] wifi using interface", "NIC:"),
+            (r"\[BETTERCAP API\] stdout: \[\d{2}:\d{2}:\d{2}\] \[wifi\.ap\.new\] wifi access point", "AP+:"), 
+            (r"\[BETTERCAP API\] stdout: \[\d{2}:\d{2}:\d{2}\] \[wifi\.client\.new\] new station (\w{2}(:\w{2}){5}) detected for (\S+)","CL+:"),
+            (r"\[BETTERCAP API\] stdout: \[\d{2}:\d{2}:\d{2}\] \[sys\.log\] \[inf\] api.rest api server starting on","INF:"),
+            (r"\[BETTERCAP API\] stdout: \[\d{2}:\d{2}:\d{2}\] \[sys\.log\] \[war\] wifi error while activating handle: error while setting interface wlan0mon in monitor mode: Cannot set rfmon for this handle,", "WAR:"),
+            (r"\[BETTERCAP API\] stdout: \[\d{2}:\d{2}:\d{2}\] \[sys\.log\] \[war\] wifi could not set interface wlan0mon txpower to 30, 'Set Tx Power' requests not supported", "WAR: Set TxPower not supported"),
+            (r"\[BETTERCAP API\] stdout: \[\d{2}:\d{2}:\d{2}\] \[sys\.log\] \[inf\] wifi started","INF:"),
+            (r"\[BETTERCAP API\] stdout: \[\d{2}:\d{2}:\d{2}\] \[sys\.log\] \[inf\] wifi wifi channel hopper started","INF: Channel hopper started"),
+            (r"\[BETTERCAP API\] stdout: \[\d{2}:\d{2}:\d{2}\] \[wifi\.client\.probe\] station (\w{2}(:\w{2}){5}) is probing for","PRB:"),
+            (r"\[BETTERCAP API\] stdout: \[\d{2}:\d{2}:\d{2}\] \[wifi\.ap\.lost\] wifi access point", "AP-:"), 
+            (r"\[BETTERCAP API\] stdout: bettercap", "bettercap"),
+            (r"\[BETTERCAP API\] stdout:\n", ""),
+            (r"\[BETTERCAP API\] stdout:$", "")        
         ]
     ))
 
@@ -517,9 +516,6 @@ def update_wifi_menu(menuitem):
         name="WIFI RECON",
         submenu=wifi_recon
     ))
-
-
-    #menu "TARGET SELECTOR" -> selecciona un AP o cliente como objetivo para el resto de ataques
 
     #menu "DEAUTH ATTACK" -> deautenticar cosas
 

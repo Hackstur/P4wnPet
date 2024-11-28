@@ -3,9 +3,8 @@ import psutil
 import threading
 import queue
 
-# Configurar el logger
-from core.logger import setup_logger
-logger = setup_logger(__name__)
+from core.logger import LoggerSingleton
+logger = LoggerSingleton().get_logger(__name__)
 
 class ProcessManager:
 
